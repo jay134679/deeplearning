@@ -1,0 +1,59 @@
+
+* Do initial class paperwork
+** TODO Decide team name
+** TODO Do we need a leader?
+** TODO Formally create team by emailing TA
+If you are still forming a team, please introduce your team by sending an email to Jake
+j.zhao@nyu.edu with the following subject line and specify the team name, team members,
+and their NetIDs.
+[DS-GA-1008 YOUR_TEAM_NAME]
+
+** TODO Who is our "corresponding TA"?
+
+
+* prepare programming environment and paperwork
+** DONE install lua and torch
+** TODO create git repo
+** TODO move this file to the git repo
+** TODO install itorch notebook
+** TODO Read up on lua syntax
+** TODO set up cims environment
+I already have an account, figure out how to log in.
+if you can't use: 
+https://www.cims.nyu.edu/webapps/content/systems/userservices/accounts/obtain
+** Set up CIMS web server for model submission
+http://cims.nyu.edu/webapps/content/systems/userservices/webhosting f
+
+
+* Week 1 Studying
+** TODO Review slides from Lecture, make questions
+** TODO Watch video / read slides from ICML tutorial
+
+
+* TODO homework 1
+http://cilvr.nyu.edu/lib/exe/fetch.php?media=deeplearning:2016:a1.pdf
+** TODO Find solutions for problem 1
+*** TODO What is Backpropagation?
+*** TODO Solve problem 1.1
+*** TODO Solve problem 1.2
+*** TODO Solve problem 1.3
+** TODO Write up solutions for problem 1
+Use itorch notebook
+** TODO Go through itorch notebook tutorial
+http://code.madbits.com/wiki/doku.php?id=tutorial_supervised
+** TODO Read and understand sample code
+https://github.com/yjxiao/ds-ga-1008-a1
+** TODO clone git repo
+** TODO improve performance of given model ??
+*** TODO create script result.lua that generates predictions.csv
+** TODO write report on your model structure, training process, experiments, results, etc.
+We expect a rather formal report written with Latex
+use itorch notebook
+** TODO Expose model and predictions via CIMS
+http://cims.nyu.edu/webapps/content/systems/userservices/webhosting f
+** TODO Submit predictions.csv to Kaggle ?
+** TODO Email final submission to TA
+Send your submission (writeup and result.lua) to your corresponding TA by the deadline.
+Merge your solutions to section 1 with the writeup from section 2. Include a link to the
+trained model file in the email. Please use the following title for your email.
+[DS-GA-1008 YOUR_TEAM_NAME] Submission A1
