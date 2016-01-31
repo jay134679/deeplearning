@@ -11,18 +11,18 @@ and their NetIDs.
 ** TODO Who is our "corresponding TA"?
 
 
-* prepare programming environment and paperwork
+* DONE prepare programming environment
 ** DONE install lua and torch
-** TODO create git repo
-** TODO move this file to the git repo
-** TODO install itorch notebook
-** TODO Read up on lua syntax
-** TODO set up cims environment
+** DONE create git repo
+** DONE move this file to the git repo
+** DONE install itorch notebook
+https://github.com/facebook/iTorch#installing-itorch
+** DONE set up cims environment
 I already have an account, figure out how to log in.
 if you can't use: 
 https://www.cims.nyu.edu/webapps/content/systems/userservices/accounts/obtain
-** Set up CIMS web server for model submission
-http://cims.nyu.edu/webapps/content/systems/userservices/webhosting f
+** DONE Set up CIMS web server for model submission
+http://cims.nyu.edu/webapps/content/systems/userservices/webhosting
 
 
 * Week 1 Studying
