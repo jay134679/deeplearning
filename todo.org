@@ -25,11 +25,18 @@ https://www.cims.nyu.edu/webapps/content/systems/userservices/accounts/obtain
 http://cims.nyu.edu/webapps/content/systems/userservices/webhosting
 
 
-* Week 1 Studying
-** TODO Review slides from Lecture, make questions
+* TODO Week 1 Studying
+** DONE Review slides from Lecture, make questions
 ** TODO Watch video / read slides from ICML tutorial
 
 
+* Week 2 Studying
+** TODO Read book about backprop
+http://neuralnetworksanddeeplearning.com/chap2.html
+** TODO read the convnet paper
+http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf 
+** TODO Go over lecture 2 slides
+   
 * TODO homework 1
 http://cilvr.nyu.edu/lib/exe/fetch.php?media=deeplearning:2016:a1.pdf
 ** TODO Find solutions for problem 1
@@ -41,18 +48,58 @@ http://cilvr.nyu.edu/lib/exe/fetch.php?media=deeplearning:2016:a1.pdf
 Use itorch notebook
 ** TODO Go through itorch notebook tutorial
 http://code.madbits.com/wiki/doku.php?id=tutorial_supervised
-** TODO Read and understand sample code
+*** TODO 1. Data prep
+**** TODO What is the difference between the colon and dot operators?
+**** TODO what is the hastag/pound operator?
+**** TODO I don't understand the following syntax:
+trainData.data[{ {},i,{},{} }]
+trainData.data[{ i,{1},{},{} }]
+**** TODO image.gaussian1D(7) ?
+**** TODO I don't understand this normalization technique
+*** TODO 2. Model prep
+**** TODO What does "nn.Reshape(ninputs)" mean?
+**** TODO nn.Linear(ninputs, noutputs)?
+**** TODO nn.tables.random(nfeats, nstates[1], fanin[1])?
+**** TODO Understand this conceptually
+*** 3. Loss function
+Nothing todo here
+*** TODO 4. Training
+**** TODO Don't understand the usage of the 'or' keyword
+epoch = epoch or 1
+**** TODO What does the 'local' keyword do?
+local time = sys.clock()
+**** TODO What does the ~= operator do?
+if x ~= parameters then
+**** TODO Understand this conceptually
+*** 5. Testing
+nothing new to do
+** TODO Read and understand MNIST sample code
 https://github.com/yjxiao/ds-ga-1008-a1
-** TODO clone git repo
-** TODO improve performance of given model ??
+** TODO Run MNIST code on CIMS
+running locally instead
+
+you@crunchy1[Documents]$ git clone https://github.com/yjxiao/ds-ga-1008-a1
+you@crunchy1[Documents]$ module load torch
+you@crunchy1[Documents]$ cd ds-ga-1008-a1
+you@crunchy1[ds-ga-1008-a1]$ th doall.lua
+
+works, but slowly, trying on cims to see if it's faster
+
+
+
+** TODO improve performance of given model
+*** TODO Add validation as suggested in the testing part of the tutorial
+*** TODO Try the different model, loss function, and training ideas from the tutorial
 *** TODO create script result.lua that generates predictions.csv
 ** TODO write report on your model structure, training process, experiments, results, etc.
 We expect a rather formal report written with Latex
 use itorch notebook
-** TODO Expose model and predictions via CIMS
+** TODO Expose trained model file via CIMS
 http://cims.nyu.edu/webapps/content/systems/userservices/webhosting f
-** TODO Submit predictions.csv to Kaggle ?
+** TODO Submit predictions.csv to Kaggle
 ** TODO Email final submission to TA
+predictions.csv + result.lua + writeup
+
 Send your submission (writeup and result.lua) to your corresponding TA by the deadline.
 Merge your solutions to section 1 with the writeup from section 2. Include a link to the
 trained model file in the email. Please use the following title for your email.
