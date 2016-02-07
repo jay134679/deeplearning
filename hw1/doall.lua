@@ -29,7 +29,7 @@ cmd:text('Options:')
 cmd:option('-seed', 1, 'fixed input seed for repeatable experiments')
 cmd:option('-threads', 2, 'number of threads')
 -- data:
-cmd:option('-size', 'small', 'how many samples do we load: small | full')
+cmd:option('-size', 'tiny', 'how many samples do we load: small | full')
 cmd:option('-tr_frac', 0.75, 'fraction of original train data assigned to validation ')
 -- model:
 cmd:option('-model', 'convnet', 'type of model to construct: linear | mlp | convnet')
@@ -41,6 +41,9 @@ cmd:option('-plot', false, 'live plot')
 cmd:option('-optimization', 'SGD', 'optimization method: SGD | ASGD | CG | LBFGS')
 cmd:option('-learningRate', 1e-3, 'learning rate at t=0')
 cmd:option('-batchSize', 1, 'mini-batch size (1 = pure stochastic)')
+cmd:option('-batchSizeArray', {1,10,50,100}, 'batch sizes to try')
+
+
 cmd:option('-weightDecay', 0, 'weight decay (SGD only)')
 cmd:option('-momentum', 0, 'momentum (SGD only)')
 cmd:option('-t0', 1, 'start averaging at t0 (ASGD only), in nb of epochs')
@@ -61,6 +64,7 @@ end
 torch.setnumthreads(opt.threads)
 torch.manualSeed(opt.seed)
 
+--opt.save = opt.save .. opt.batchSize TO DO
 ----------------------------------------------------------------------
 print '==> executing all'
 
@@ -81,13 +85,38 @@ max_epochs = 15
 epoch = 1
 accuracy_tracker = {}
 
-
-while epoch <= max_epochs do -- epoch is incremented in train function
-   train()
-   validate()
-   --test()
+function start_logging()
+   --train_new_name = 'train'..opt.batchSize..'.log'
+   --print (train_new_name)
+   trainLogger = optim.Logger(paths.concat(opt.save, 'train'..opt.batchSize..'.log'))
+   valLogger = optim.Logger(paths.concat(opt.save, 'validate'..opt.batchSize..'.log'))  
+   testLogger = optim.Logger(paths.concat(opt.save, 'test'..opt.batchSize..'.log'))
+   ModelUpdateLogger = optim.Logger(paths.concat(opt.save, 'ModelUpdateLog'..opt.batchSize..'.log'))
+   ModelUpdateLogger:setNames{'iteration saved', 'validation error'}
 end
 
-print(accuracy_tracker)
+--start_logging()
+--train(trainLogger)
 
---test() TODO - remember to load and test best model
+function per_model(trainLogger,testLogger,ModelUpdateLogger)
+   while epoch <= max_epochs do -- epoch is incremented in train function
+      train(trainLogger)
+      validate(testLogger,ModelUpdateLogger)
+   end
+end
+
+function change_batch_size()
+   for i = 1, #opt.batchSizeArray do
+      -- set specific batchsize for expirement
+      opt.batchSize = opt.batchSizeArray[i]
+      -- change save path to folder for specific batchsize
+      start_logging()
+      per_model(trainLogger,testLogger,ModelUpdateLogger)
+   end
+end
+
+
+change_batch_size()
+
+-- print(accuracy_tracker) 
+

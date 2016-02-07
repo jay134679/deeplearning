@@ -13,7 +13,7 @@ require 'optim'   -- an optimization package, for online and batch methods
 print '==> defining validate procedure'
 
 -- validate function
-function validate()
+function validate(valLogger,ModelUpdateLogger)
    -- local vars
    local time = sys.clock()
 
@@ -51,7 +51,7 @@ function validate()
    -- print confusion matrix
    print(confusion)
 
-   savemodel(confusion)
+   savemodel(confusion,ModelUpdateLogger)
 
    -- update log/plot
    valLogger:add{['% mean class accuracy (validation set)'] = confusion.totalValid * 100}
@@ -72,14 +72,14 @@ end
 
 
 
-function savemodel(confusion)
+function savemodel(confusion,ModelUpdateLogger)
    new_accuracy = confusion.totalValid
    table.insert(accuracy_tracker, new_accuracy)
    if new_accuracy-old_accuracy > epsilon  then
       --ModelUpdateLogger:add{['Model Updated ==> % mean class accuracy (validation set)'] = new_accuracy}
       ModelUpdateLogger:add{epoch-1, new_accuracy}
       -- save/log current net
-      local filename = paths.concat(opt.save, 'model.net')
+      local filename = paths.concat(opt.save, 'model'..opt.batchSize..'.net')
       os.execute('mkdir -p ' .. sys.dirname(filename))
       print('New model is better ==> saving model to '..filename)
       torch.save(filename, model)

@@ -56,12 +56,12 @@ classes = {'1','2','3','4','5','6','7','8','9','0'}
 -- This matrix records the current confusion across classes
 confusion = optim.ConfusionMatrix(classes)
 
--- Log results to files
-trainLogger = optim.Logger(paths.concat(opt.save, 'train.log'))
-valLogger = optim.Logger(paths.concat(opt.save, 'validate.log'))
+--[[valLogger = optim.Logger(paths.concat(opt.save, 'validate.log')) TO DO 
 testLogger = optim.Logger(paths.concat(opt.save, 'test.log'))
 ModelUpdateLogger = optim.Logger(paths.concat(opt.save, 'ModelUpdateLog.log'))
 ModelUpdateLogger:setNames{'iteration saved', 'validation error'}
+]]
+
 -- Retrieve parameters and gradients:
 -- this extracts and flattens all the trainable parameters of the mode
 -- into a 1-dim vector
@@ -109,7 +109,7 @@ end
 ----------------------------------------------------------------------
 print '==> defining training procedure'
 
-function train()
+function train(trainLogger)
 
    -- epoch tracker
    epoch = epoch or 1
@@ -134,7 +134,6 @@ function train()
       local inputs = {}
       local targets = {}
       for i = t,math.min(t+opt.batchSize-1,trainData:size()) do
-         -- print ("****** " .. i .."minibatch ") TODO
          -- load new sample
          local input = trainData.data[shuffle[i]]
          local target = trainData.labels[shuffle[i]]
@@ -143,7 +142,6 @@ function train()
          table.insert(inputs, input)
          table.insert(targets, target)
       end
-      -- print ("end of inner loop") TODO
       -- create closure to evaluate f(X) and df/dX
       local feval = function(x)
                        -- get new parameters
@@ -203,30 +201,8 @@ function train()
       trainLogger:plot()
    end
 
-   -- made saving of model into function 
-   -- savemodel(confusion)  TODO remove later
-   --[[
-   -- save/log current net
-   local filename = paths.concat(opt.save, 'model.net')
-   os.execute('mkdir -p ' .. sys.dirname(filename))
-   print('==> saving model to '..filename)
-   torch.save(filename, model)
-   ]]
    -- next epoch
    confusion:zero() 
    epoch = epoch + 1
 end
 
-
---[[
-function savemodel(confusion)
-   new_accuracy = confusion.totalValid
-   if new_accuracy-old_accuracy > epsilon  then
-      -- save/log current net
-      local filename = paths.concat(opt.save, 'model.net')
-      os.execute('mkdir -p ' .. sys.dirname(filename))
-      print('New model is better ==> saving model to '..filename)
-      torch.save(filename, model)        
-   end
-end
-]]
