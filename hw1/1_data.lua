@@ -23,7 +23,8 @@ if not opt then
    cmd:text('MNIST Dataset Preprocessing')
    cmd:text()
    cmd:text('Options:')
-   cmd:option('-size', 'small', 'how many samples do we load: small | full')
+   cmd:option('-size', 'tiny', 'how many samples do we load: tiny | small | full')
+   cmd:option('-tr_frac', 0.75, 'fraction of original train data assigned to validation ')
    cmd:option('-visualize', true, 'visualize input data and weights during training')
    cmd:text()
    opt = cmd:parse(arg or {})
@@ -56,17 +57,39 @@ elseif opt.size == 'small' then
    print '==> using reduced training data, for fast experiments'
    trsize = 6000
    tesize = 1000
+elseif opt.size == 'tiny' then
+   print '==> using tiny training data, for initial experiments'
+   trsize = 600
+   tesize = 100
 end
 
 ----------------------------------------------------------------------
 print '==> loading dataset'
 
 loaded = torch.load(train_file, 'ascii')
+train_size = (opt.tr_frac*loaded.data:size(1))
+trD = torch.split(loaded.data,train_size,1) -- split trainging into train and validate
+lbltrD = loaded.labels:split(train_size,1) -- split labels into train and validate
+--trD[1]
+--trD[2]
+
+--loaded.data:split(5000,1)
+--opt.val_frac
+--trD = math.floor(trsize*(1-opt.val_frac))
+--valD = 
+
 trainData = {
-   data = loaded.data,
-   labels = loaded.labels,
-   size = function() return trsize end
+   data = trD[1],
+   labels = lbltrD[1],--[(opt.tr_frac*loaded.data:size(1))],
+   size = function() return opt.tr_frac*trsize end
 }
+
+validateData = {
+   data = trD[2],
+   labels = lbltrD[2],--[(opt.tr_frac*loaded.data:size(1))],
+   size = function() return trsize-opt.tr_frac*trsize end
+}
+
 
 loaded = torch.load(test_file, 'ascii')
 testData = {
@@ -86,6 +109,7 @@ print '==> preprocessing data'
 
 trainData.data = trainData.data:float()
 testData.data = testData.data:float()
+validateData.data = validateData.data:float()
 
 -- We now preprocess the data. Preprocessing is crucial
 -- when applying pretty much any kind of machine learning algorithm.

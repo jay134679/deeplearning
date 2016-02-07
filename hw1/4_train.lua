@@ -58,7 +58,9 @@ confusion = optim.ConfusionMatrix(classes)
 
 -- Log results to files
 trainLogger = optim.Logger(paths.concat(opt.save, 'train.log'))
+valLogger = optim.Logger(paths.concat(opt.save, 'validate.log'))
 testLogger = optim.Logger(paths.concat(opt.save, 'test.log'))
+ModelUpdateLogger = optim.Logger(paths.concat(opt.save, 'ModelUpdateLog.log'))
 
 -- Retrieve parameters and gradients:
 -- this extracts and flattens all the trainable parameters of the mode
@@ -191,8 +193,8 @@ function train()
    print("\n==> time to learn 1 sample = " .. (time*1000) .. 'ms')
 
    -- print confusion matrix
-   print(confusion)
-
+   -- print(confusion)
+   --last_global_avg = confusion.totalValid
    -- update logger/plot
    trainLogger:add{['% mean class accuracy (train set)'] = confusion.totalValid * 100}
    if opt.plot then
@@ -200,13 +202,30 @@ function train()
       trainLogger:plot()
    end
 
+   -- made saving of model into function 
+   -- savemodel(confusion)  TODO remove later
+   --[[
    -- save/log current net
    local filename = paths.concat(opt.save, 'model.net')
    os.execute('mkdir -p ' .. sys.dirname(filename))
    print('==> saving model to '..filename)
    torch.save(filename, model)
-
+   ]]
    -- next epoch
-   confusion:zero()
+   confusion:zero() 
    epoch = epoch + 1
 end
+
+
+--[[
+function savemodel(confusion)
+   new_accuracy = confusion.totalValid
+   if new_accuracy-old_accuracy > epsilon  then
+      -- save/log current net
+      local filename = paths.concat(opt.save, 'model.net')
+      os.execute('mkdir -p ' .. sys.dirname(filename))
+      print('New model is better ==> saving model to '..filename)
+      torch.save(filename, model)        
+   end
+end
+]]
