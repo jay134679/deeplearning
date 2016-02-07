@@ -13,7 +13,7 @@ require 'optim'   -- an optimization package, for online and batch methods
 print '==> defining validate procedure'
 
 -- validate function
-function validate(valLogger,ModelUpdateLogger)
+function validate(valLogger, ModelUpdateLogger)
    -- local vars
    local time = sys.clock()
 
@@ -51,7 +51,9 @@ function validate(valLogger,ModelUpdateLogger)
    -- print confusion matrix
    print(confusion)
 
-   savemodel(confusion,ModelUpdateLogger)
+   assert(mean)
+   assert(std)
+   savemodel(confusion, ModelUpdateLogger, mean, std)
 
    -- update log/plot
    valLogger:add{['% mean class accuracy (validation set)'] = confusion.totalValid * 100}
@@ -70,14 +72,17 @@ function validate(valLogger,ModelUpdateLogger)
    confusion:zero()
 end
 
-
-
-function savemodel(confusion,ModelUpdateLogger)
+-- the mean and std from the training data must be saved with the model, so they
+-- can be used to normalize the test data.
+function savemodel(confusion, ModelUpdateLogger, normalized_data_mean, normalized_data_std)
    new_accuracy = confusion.totalValid
    table.insert(accuracy_tracker, new_accuracy)
    if new_accuracy-old_accuracy > epsilon  then
       --ModelUpdateLogger:add{['Model Updated ==> % mean class accuracy (validation set)'] = new_accuracy}
       ModelUpdateLogger:add{epoch-1, new_accuracy}
+      -- Saving the normalized mean and standard deviation to prepare testing data.
+      model['normalized_data_mean'] = normalized_data_mean
+      model['normalized_data_std'] = normalized_data_std
       -- save/log current net
       local filename = paths.concat(opt.save, 'model'..opt.batchSize..'.net')
       os.execute('mkdir -p ' .. sys.dirname(filename))

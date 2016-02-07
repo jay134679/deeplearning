@@ -50,8 +50,8 @@ end
 function prepare_test_data(data_filename, normalized_data_mean, normalized_data_std)
    print "==> loading test data"
    -- Load training and testing data. This will only use the testing data.
-   loaded = torch.load(data_filename, 'ascii')
-   test_data = {
+   local loaded = torch.load(data_filename, 'ascii')
+   local test_data = {
       data = loaded.data:float(),
       labels = loaded.labels,
       size = loaded.data:size(1)
@@ -68,12 +68,13 @@ end
 -- confusion matrix.
 function create_predictions_string(model, test_data)
    print "==> running model"
+   model:evaluate()  -- Putting the model in evalate mode, in case it's needed.
    -- classes
-   classes = {'1','2','3','4','5','6','7','8','9','0'}
+   local classes = {'1','2','3','4','5','6','7','8','9','0'}
    -- This matrix records the current confusion across classes
-   confusion = optim.ConfusionMatrix(classes)
+   local confusion = optim.ConfusionMatrix(classes)
    -- make predictions
-   predictions_str = "Id,Prediction\n"
+   local predictions_str = "Id,Prediction\n"
 
    for i = 1, test_data.size do
       -- get new sample
@@ -90,18 +91,19 @@ end
 -- Writes the given predictions string to the given output file.
 function write_predictions_csv(predictions_str, output_filename)
    print('==> saving ' .. output_filename .. '...')
-   file = io.open(output_filename, "w")
-   file:write(predictions_str)
-   file:close()
+   local f = io.open(output_filename, "w")
+   f:write(predictions_str)
+   f:close()
    print('==> file saved')
 end
 
 function main()
-   options = parse_commandline()
-   model = torch.load(options.model_filename)
-   test_data = prepare_test_data(options.data_filename, model.normalized_data_mean,
-				 model.normalized_data_std)
-   predictions_str = create_predictions_string(model, test_data)
+   local options = parse_commandline()
+   local model = torch.load(options.model_filename)
+   local test_data = prepare_test_data(options.data_filename,
+				       model.normalized_data_mean,
+				       model.normalized_data_std)
+   local predictions_str = create_predictions_string(model, test_data)
    write_predictions_csv(predictions_str, options.output_filename)
 end
 
