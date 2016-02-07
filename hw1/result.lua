@@ -1,7 +1,12 @@
 -- Homework 1: result.lua
--- Loads a trained MNIST model, and makes predictions on the test data in
--- 'mnist.t7/test_32x32.t7'. By default, it writes its predictions to a file
--- named predictions.csv, and loads the model from results/model.net.
+-- Maya Rotmensch (mer567) and Alex Pine (akp258)
+--
+-- This script loads a trained MNIST model, and makes predictions on
+-- the test data in 'mnist.t7/test_32x32.t7'. By default, it writes
+-- its predictions to a file named predictions.csv, and loads the
+-- model from results/model.net.  NOTE: This script assumes that the
+-- saved model has two extra keys: 'normalized_data_mean' and
+-- 'normalized_data_std'.
 
 require 'nn'
 require 'optim'
@@ -41,6 +46,7 @@ function max_index(row_storage)
    return max_index
 end
 
+-- Loads the testing data from a file, normalizes it, and returns it.
 function prepare_test_data(data_filename, normalized_data_mean, normalized_data_std)
    print "==> loading test data"
    -- Load training and testing data. This will only use the testing data.
@@ -81,6 +87,7 @@ function create_predictions_string(model, test_data)
    return predictions_str
 end
 
+-- Writes the given predictions string to the given output file.
 function write_predictions_csv(predictions_str, output_filename)
    print('==> saving ' .. output_filename .. '...')
    file = io.open(output_filename, "w")
@@ -99,5 +106,3 @@ function main()
 end
 
 main()
-
--- TODO why is it so accurate?
