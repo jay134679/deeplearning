@@ -69,25 +69,25 @@ print '==> loading dataset'
 loaded = torch.load(train_file, 'ascii')
 
 -- divide the data into train and validate
-train_size = (opt.tr_frac*loaded.data:size(1))
-trD = torch.split(loaded.data,train_size,1) -- split trainging into train and validate
-lbltrD = loaded.labels:split(train_size,1) -- split labels into train and validate
+full_train_size = (opt.tr_frac*loaded.data:size(1))
+split_data_table = torch.split(loaded.data,full_train_size,1) -- split trainging into train and validate
+split_label_table = loaded.labels:split(full_train_size,1) -- split labels into train and validate
 
 new_trsize = opt.tr_frac*trsize
-new_valsize = trsize-opt.tr_frac*trsize
+new_valsize = trsize-new_trsize
 
 -- adjust global variable trsize according to train/val split since. (it is used in other functions)
-trsize = train_size
+trsize = new_trsize
 
 trainData = {
-   data = trD[1],
-   labels = lbltrD[1],
+   data = split_data_table[1],
+   labels = split_label_table[1],
    size = function() return new_trsize end
 }
 
 validateData = {
-   data = trD[2],
-   labels = lbltrD[2],
+   data = split_data_table[2],
+   labels = split_label_table[2],
    size = function() return new_valsize end
 }
 
@@ -137,12 +137,18 @@ validateData.data = validateData.data:float()
 print '==> preprocessing data: normalize globally'
 mean = trainData.data[{ {},1,{},{} }]:mean()
 std = trainData.data[{ {},1,{},{} }]:std()
+
 trainData.data[{ {},1,{},{} }]:add(-mean)
 trainData.data[{ {},1,{},{} }]:div(std)
 
 -- Normalize test data, using the training means/stds
 testData.data[{ {},1,{},{} }]:add(-mean)
 testData.data[{ {},1,{},{} }]:div(std)
+
+-- normalize validation data
+validateData.data[{ {},1,{},{} }]:add(-mean)
+validateData.data[{ {},1,{},{} }]:div(std)
+
 
 ----------------------------------------------------------------------
 print '==> verify statistics'
@@ -156,11 +162,18 @@ trainStd = trainData.data[{ {},1 }]:std()
 testMean = testData.data[{ {},1 }]:mean()
 testStd = testData.data[{ {},1 }]:std()
 
+valMean =  validateData.data[{ {},1 }]:mean()
+valStd = validateData.data[{ {},1 }]:std()
+
+
 print('training data mean: ' .. trainMean)
 print('training data standard deviation: ' .. trainStd)
 
 print('test data mean: ' .. testMean)
 print('test data standard deviation: ' .. testStd)
+
+print('validation data mean: ' .. valMean)
+print('validation data standard deviation: ' .. valStd)
 
 ----------------------------------------------------------------------
 print '==> visualizing data'

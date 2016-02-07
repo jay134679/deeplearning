@@ -76,7 +76,8 @@ function savemodel(confusion)
    new_accuracy = confusion.totalValid
    table.insert(accuracy_tracker, new_accuracy)
    if new_accuracy-old_accuracy > epsilon  then
-      ModelUpdateLogger:add{['Model Updated ==> % mean class accuracy (validation set)'] = new_accuracy}
+      --ModelUpdateLogger:add{['Model Updated ==> % mean class accuracy (validation set)'] = new_accuracy}
+      ModelUpdateLogger:add{epoch-1, new_accuracy}
       -- save/log current net
       local filename = paths.concat(opt.save, 'model.net')
       os.execute('mkdir -p ' .. sys.dirname(filename))

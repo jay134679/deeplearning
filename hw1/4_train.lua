@@ -194,7 +194,7 @@ function train()
    print("\n==> time to learn 1 sample = " .. (time*1000) .. 'ms')
 
    -- print confusion matrix
-   -- print(confusion)
+    print(confusion)
    --last_global_avg = confusion.totalValid
    -- update logger/plot
    trainLogger:add{['% mean class accuracy (train set)'] = confusion.totalValid * 100}

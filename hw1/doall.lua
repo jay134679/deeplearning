@@ -29,7 +29,7 @@ cmd:text('Options:')
 cmd:option('-seed', 1, 'fixed input seed for repeatable experiments')
 cmd:option('-threads', 2, 'number of threads')
 -- data:
-cmd:option('-size', 'tiny', 'how many samples do we load: small | full')
+cmd:option('-size', 'small', 'how many samples do we load: small | full')
 cmd:option('-tr_frac', 0.75, 'fraction of original train data assigned to validation ')
 -- model:
 cmd:option('-model', 'convnet', 'type of model to construct: linear | mlp | convnet')
@@ -77,7 +77,7 @@ print '==> training!'
 -- global variables
 epsilon = 0.000001
 old_accuracy = 0
-max_epochs = 5
+max_epochs = 15
 epoch = 1
 accuracy_tracker = {}
 
@@ -85,6 +85,7 @@ accuracy_tracker = {}
 while epoch <= max_epochs do -- epoch is incremented in train function
    train()
    validate()
+   --test()
 end
 
 print(accuracy_tracker)
