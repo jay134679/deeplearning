@@ -29,7 +29,8 @@ cmd:text('Options:')
 cmd:option('-seed', 1, 'fixed input seed for repeatable experiments')
 cmd:option('-threads', 2, 'number of threads')
 -- data:
-cmd:option('-size', 'full', 'how many samples do we load: small | full')
+cmd:option('-size', 'tiny', 'how many samples do we load: small | full')
+cmd:option('-tr_frac', 0.75, 'fraction of original train data assigned to validation ')
 -- model:
 cmd:option('-model', 'convnet', 'type of model to construct: linear | mlp | convnet')
 -- loss:
@@ -67,12 +68,25 @@ dofile '1_data.lua'
 dofile '2_model.lua'
 dofile '3_loss.lua'
 dofile '4_train.lua'
+dofile '4b_validate.lua'
 dofile '5_test.lua'
 
 ----------------------------------------------------------------------
 print '==> training!'
 
-while true do
+-- global variables
+epsilon = 0.000001
+old_accuracy = 0
+max_epochs = 5
+epoch = 1
+accuracy_tracker = {}
+
+
+while epoch <= max_epochs do -- epoch is incremented in train function
    train()
-   test()
+   validate()
 end
+
+print(accuracy_tracker)
+
+--test() TODO - remember to load and test best model
