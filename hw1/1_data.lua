@@ -67,27 +67,28 @@ end
 print '==> loading dataset'
 
 loaded = torch.load(train_file, 'ascii')
+
+-- divide the data into train and validate
 train_size = (opt.tr_frac*loaded.data:size(1))
 trD = torch.split(loaded.data,train_size,1) -- split trainging into train and validate
 lbltrD = loaded.labels:split(train_size,1) -- split labels into train and validate
---trD[1]
---trD[2]
 
---loaded.data:split(5000,1)
---opt.val_frac
---trD = math.floor(trsize*(1-opt.val_frac))
---valD = 
+new_trsize = opt.tr_frac*trsize
+new_valsize = trsize-opt.tr_frac*trsize
+
+-- adjust global variable trsize according to train/val split since. (it is used in other functions)
+trsize = train_size
 
 trainData = {
    data = trD[1],
-   labels = lbltrD[1],--[(opt.tr_frac*loaded.data:size(1))],
-   size = function() return opt.tr_frac*trsize end
+   labels = lbltrD[1],
+   size = function() return new_trsize end
 }
 
 validateData = {
    data = trD[2],
-   labels = lbltrD[2],--[(opt.tr_frac*loaded.data:size(1))],
-   size = function() return trsize-opt.tr_frac*trsize end
+   labels = lbltrD[2],
+   size = function() return new_valsize end
 }
 
 
@@ -97,6 +98,7 @@ testData = {
    labels = loaded.labels,
    size = function() return tesize end
 }
+
 
 ----------------------------------------------------------------------
 print '==> preprocessing data'

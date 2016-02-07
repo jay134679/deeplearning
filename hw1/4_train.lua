@@ -61,7 +61,7 @@ trainLogger = optim.Logger(paths.concat(opt.save, 'train.log'))
 valLogger = optim.Logger(paths.concat(opt.save, 'validate.log'))
 testLogger = optim.Logger(paths.concat(opt.save, 'test.log'))
 ModelUpdateLogger = optim.Logger(paths.concat(opt.save, 'ModelUpdateLog.log'))
-
+ModelUpdateLogger:setNames{'iteration saved', 'validation error'}
 -- Retrieve parameters and gradients:
 -- this extracts and flattens all the trainable parameters of the mode
 -- into a 1-dim vector
@@ -129,11 +129,12 @@ function train()
    for t = 1,trainData:size(),opt.batchSize do
       -- disp progress
       xlua.progress(t, trainData:size())
-
+      
       -- create mini batch
       local inputs = {}
       local targets = {}
       for i = t,math.min(t+opt.batchSize-1,trainData:size()) do
+         -- print ("****** " .. i .."minibatch ") TODO
          -- load new sample
          local input = trainData.data[shuffle[i]]
          local target = trainData.labels[shuffle[i]]
@@ -142,7 +143,7 @@ function train()
          table.insert(inputs, input)
          table.insert(targets, target)
       end
-
+      -- print ("end of inner loop") TODO
       -- create closure to evaluate f(X) and df/dX
       local feval = function(x)
                        -- get new parameters
