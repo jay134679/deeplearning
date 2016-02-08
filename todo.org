@@ -91,12 +91,13 @@ works, but slowly, trying on cims to see if it's faster
 actually, it's slower on cims!
 
 
-** TODO TODO TODO TODO TODO!!!!!!!!!!!!!! Why don't the results from result.lua match those from doall?
+** DONE TODO TODO TODO TODO!!!!!!!!!!!!!! Why don't the results from result.lua match those from doall?
 ** TODO improve performance of given model
 *** DONE Add validation as suggested in the testing part of the tutorial
 *** DONE Get the model to stop training once it 'converges'
 *** TODO Try the different model, loss function, and training ideas from the tutorial
 *** DONE create script result.lua that generates predictions.csv
+** TODO compare predictions.csv to someone else
 ** TODO write report on your model structure, training process, experiments, results, etc.
 We expect a rather formal report written with Latex
 use itorch notebook

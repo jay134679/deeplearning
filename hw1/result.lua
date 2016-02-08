@@ -1,6 +1,3 @@
-
--- TODO this doesn't match the printed end results of main.lua!!?? Why??
-
 -- Homework 1: result.lua
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 --
@@ -51,14 +48,21 @@ function max_index(row_storage)
 end
 
 -- Loads the testing data from a file, normalizes it, and returns it.
-function prepare_test_data(data_filename, normalized_data_mean, normalized_data_std)
+function prepare_test_data(data_filename, num_data_to_test, normalized_data_mean, normalized_data_std)
    print "==> loading test data"
    -- Load training and testing data. This will only use the testing data.
    local loaded = torch.load(data_filename, 'ascii')
+
+   local data_size = loaded.data:size(1)
+   if num_data_to_test ~= -1 then
+      print('==> setting the number of data points to test to: '.. num_data_to_test)
+      data_size = num_data_to_test
+   end
+   
    local test_data = {
       data = loaded.data:float(),
       labels = loaded.labels,
-      size = loaded.data:size(1)
+      size = data_size
    }
 
    assert(normalized_data_mean ~= nil)
@@ -76,7 +80,7 @@ end
 -- on each value of the test data. It writes its predictions to a
 -- comma-delimited string, one prediction per line. It also prints the
 -- confusion matrix.
-function create_predictions_string(model, test_data, num_data_to_test)
+function create_predictions_string(model, test_data)
    print("==> running model on test data with " .. test_data.size .. " entries.")
    model:evaluate()  -- Putting the model in evalate mode, in case it's needed.
    -- classes
@@ -86,7 +90,7 @@ function create_predictions_string(model, test_data, num_data_to_test)
    -- make predictions
    local predictions_str = "Id,Prediction\n"
 
-   for i = 1,num_data_to_test do
+   for i = 1,test_data.size do
       -- get new sample
       local input = test_data.data[i]:double()
       local prediction_tensor = model:forward(input)
@@ -111,14 +115,10 @@ function main()
    local options = parse_commandline()
    local model = torch.load(options.model_filename)
    local test_data = prepare_test_data(options.data_filename,
+				       options.num_data_to_test,
 				       model.normalized_data_mean,
 				       model.normalized_data_std)
-   local num_data_to_test = test_data.size
-   if options.num_data_to_test ~= -1 then
-      print('==> setting the number of data points to test to: '.. options.num_data_to_test)
-      num_data_to_test = options.num_data_to_test
-   end
-   local predictions_str = create_predictions_string(model, test_data, num_data_to_test)
+   local predictions_str = create_predictions_string(model, test_data)
    write_predictions_csv(predictions_str, options.output_filename)
 end
 
