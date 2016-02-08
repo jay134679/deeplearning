@@ -15,7 +15,7 @@ require 'torch'
 -- Parses the global 'arg' variable to get commandline arguments.
 function parse_commandline()
    print "==> processing options"
-   cmd = torch.CmdLine()
+   local cmd = torch.CmdLine()
    cmd:text()
    cmd:text("Homework 1 Results")
    cmd:text()
@@ -26,8 +26,9 @@ function parse_commandline()
 	      "the name of the CSV file that will contain the model's predictions.")
    cmd:option("-model_filename", "results/model.net",
 	      "the name of the file that contains the trained model,")
+   cmd:option("-num_data_to_test", -1, "The number of data points to test. If -1, defaults to the size of the test data.")
    cmd:text()
-   options = cmd:parse(arg or {})
+   local options = cmd:parse(arg or {})
    return options
 end
 
@@ -56,6 +57,12 @@ function prepare_test_data(data_filename, normalized_data_mean, normalized_data_
       labels = loaded.labels,
       size = loaded.data:size(1)
    }
+
+   assert(normalized_data_mean ~= nil)
+   assert(normalized_data_std ~= nil)
+   print('==> normalizing mean to train data\'s: '..normalized_data_mean)
+   print('==> normalizing std to train data\'s: '..normalized_data_std)
+   
    -- normalize data using the training data's mean and standard deviation, as stored in the model.
    test_data.data[{ {},1,{},{} }]:add(-normalized_data_mean)
    test_data.data[{ {},1,{},{} }]:div(normalized_data_std)
@@ -66,8 +73,8 @@ end
 -- on each value of the test data. It writes its predictions to a
 -- comma-delimited string, one prediction per line. It also prints the
 -- confusion matrix.
-function create_predictions_string(model, test_data)
-   print "==> running model"
+function create_predictions_string(model, test_data, num_data_to_test)
+   print("==> running model on test data with " .. test_data.size .. " entries.")
    model:evaluate()  -- Putting the model in evalate mode, in case it's needed.
    -- classes
    local classes = {'1','2','3','4','5','6','7','8','9','0'}
@@ -76,7 +83,7 @@ function create_predictions_string(model, test_data)
    -- make predictions
    local predictions_str = "Id,Prediction\n"
 
-   for i = 1, test_data.size do
+   for i = 1,num_data_to_test do
       -- get new sample
       local input = test_data.data[i]:double()
       local prediction_tensor = model:forward(input)
@@ -103,7 +110,12 @@ function main()
    local test_data = prepare_test_data(options.data_filename,
 				       model.normalized_data_mean,
 				       model.normalized_data_std)
-   local predictions_str = create_predictions_string(model, test_data)
+   local num_data_to_test = test_data.size
+   if options.num_data_to_test ~= -1 then
+      print('==> setting the number of data points to test to: '.. options.num_data_to_test)
+      num_data_to_test = options.num_data_to_test
+   end
+   local predictions_str = create_predictions_string(model, test_data, num_data_to_test)
    write_predictions_csv(predictions_str, options.output_filename)
 end
 
