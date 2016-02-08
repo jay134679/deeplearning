@@ -29,26 +29,29 @@ http://cims.nyu.edu/webapps/content/systems/userservices/webhosting
 ** DONE Review slides from Lecture, make questions
 ** TODO Watch video / read slides from ICML tutorial
 
+** TODO read lab notebook on tensors in torch
+https://github.com/mayanks43/NYU-DL-2016/blob/master/Tensors.ipynb
 
-* Week 2 Studying
+
+* TODO Week 2 Studying
 ** TODO Read book about backprop
 http://neuralnetworksanddeeplearning.com/chap2.html
 ** TODO read the convnet paper
 http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf 
 ** TODO Go over lecture 2 slides
    
+
 * TODO homework 1
 http://cilvr.nyu.edu/lib/exe/fetch.php?media=deeplearning:2016:a1.pdf
-** TODO Find solutions for problem 1
-*** TODO What is Backpropagation?
-*** TODO Solve problem 1.1
-*** TODO Solve problem 1.2
-*** TODO Solve problem 1.3
-** TODO Write up solutions for problem 1
+** DONE Find solutions for problem 1
+*** DONE Solve problem 1.1
+*** DONE Solve problem 1.2
+*** CANCELLED Solve problem 1.3
+** DONE Write up solutions for problem 1
 Use itorch notebook
 ** TODO Go through itorch notebook tutorial
 http://code.madbits.com/wiki/doku.php?id=tutorial_supervised
-*** TODO 1. Data prep
+*** DONE 1. Data prep
 **** TODO What is the difference between the colon and dot operators?
 **** TODO what is the hastag/pound operator?
 **** TODO I don't understand the following syntax:
@@ -56,14 +59,14 @@ trainData.data[{ {},i,{},{} }]
 trainData.data[{ i,{1},{},{} }]
 **** TODO image.gaussian1D(7) ?
 **** TODO I don't understand this normalization technique
-*** TODO 2. Model prep
+*** DONE 2. Model prep
 **** TODO What does "nn.Reshape(ninputs)" mean?
 **** TODO nn.Linear(ninputs, noutputs)?
 **** TODO nn.tables.random(nfeats, nstates[1], fanin[1])?
 **** TODO Understand this conceptually
 *** 3. Loss function
 Nothing todo here
-*** TODO 4. Training
+*** DONE 4. Training
 **** TODO Don't understand the usage of the 'or' keyword
 epoch = epoch or 1
 **** TODO What does the 'local' keyword do?
@@ -75,7 +78,7 @@ if x ~= parameters then
 nothing new to do
 ** TODO Read and understand MNIST sample code
 https://github.com/yjxiao/ds-ga-1008-a1
-** TODO Run MNIST code on CIMS
+** DONE Run MNIST code on CIMSa
 running locally instead
 
 you@crunchy1[Documents]$ git clone https://github.com/yjxiao/ds-ga-1008-a1
@@ -85,12 +88,15 @@ you@crunchy1[ds-ga-1008-a1]$ th doall.lua
 
 works, but slowly, trying on cims to see if it's faster
 
+actually, it's slower on cims!
 
 
+** TODO TODO TODO TODO TODO!!!!!!!!!!!!!! Why don't the results from result.lua match those from doall?
 ** TODO improve performance of given model
-*** TODO Add validation as suggested in the testing part of the tutorial
+*** DONE Add validation as suggested in the testing part of the tutorial
+*** DONE Get the model to stop training once it 'converges'
 *** TODO Try the different model, loss function, and training ideas from the tutorial
-*** TODO create script result.lua that generates predictions.csv
+*** DONE create script result.lua that generates predictions.csv
 ** TODO write report on your model structure, training process, experiments, results, etc.
 We expect a rather formal report written with Latex
 use itorch notebook

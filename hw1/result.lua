@@ -1,3 +1,6 @@
+
+-- TODO this doesn't match the printed end results of main.lua!!?? Why??
+
 -- Homework 1: result.lua
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 --

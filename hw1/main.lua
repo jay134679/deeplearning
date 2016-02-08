@@ -35,7 +35,8 @@ cmd:option('-plot', false, 'live plot')
 cmd:option('-optimization', 'SGD', 'optimization method: SGD | ASGD | CG | LBFGS')
 cmd:option('-learningRate', 1e-3, 'learning rate at t=0')
 cmd:option('-batchSize', 1, 'mini-batch size (1 = pure stochastic)')
-cmd:option('-batchSizeArray', {1})--TODO{1,10,50,100}, 'batch sizes to try')
+-- TODO this shouldn't be an option, because there is no way to override it on the commandline
+cmd:option('-batchSizeArray', {1,10,50,100}, 'batch sizes to try')
 cmd:option('-weightDecay', 0, 'weight decay (SGD only)')
 cmd:option('-momentum', 0, 'momentum (SGD only)')
 cmd:option('-t0', 1, 'start averaging at t0 (ASGD only), in nb of epochs')
@@ -62,7 +63,7 @@ torch.manualSeed(opt.seed)
 -- TODO put these in opt?
 -- global constants
 EPSILON = 0.000001
-MAX_EPOCHS = 15
+MAX_EPOCHS = 5 -- TODO
 
 -- saves the model to disk is new_accuracy is larger than old_accuracy by at least EPSILON.
 function savemodel(model, filename, new_accuracy, old_accuracy, epoch, logger)
@@ -134,11 +135,10 @@ function change_batch_size()
       -- train and run validation
       train_validate_max_epochs(opt, trainData, validateData, model, criterion,
 				output_filename, trainLogger, valLogger, ModelUpdateLogger)
-      -- see how the model does on the test data
-      local test_confusion = evaluate_model(opt, testData, model, testLogger)
+      -- see how the model does on the test data. Don't save the confusion matrix, just print it.
       print('\n\n')
-      print('Test data performance')
-      print(test_confusion)
+      print('Test (not validation!) data performance')
+      evaluate_model(opt, testData, model, testLogger)
    end
 end
 
