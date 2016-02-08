@@ -30,7 +30,7 @@ function evaluate_model(opt, eval_data, model, logger)
    model:evaluate()
 
    -- test over test data
-   print('==> testing on test set:')
+   print('==> evaluating data set:')
    for t = 1,eval_data:size() do
       -- disp progress
       xlua.progress(t, eval_data:size())
