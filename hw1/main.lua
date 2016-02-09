@@ -31,7 +31,7 @@ cmd:option('-model', 'convnet', 'type of model to construct: linear | mlp | conv
 cmd:option('-loss', 'nll', 'type of loss function to minimize: nll | mse | margin')
 -- training:
 cmd:option('-save', 'results', 'subdirectory to save/log experiments in')
-cmd:option('-plot', false, 'live plot')
+cmd:option('-plot', true, 'live plot') -- TODO
 cmd:option('-optimization', 'SGD', 'optimization method: SGD | ASGD | CG | LBFGS')
 cmd:option('-learningRate', 1e-3, 'learning rate at t=0')
 cmd:option('-batchSize', 1, 'mini-batch size (1 = pure stochastic)')
@@ -41,6 +41,8 @@ cmd:option('-weightDecay', 0, 'weight decay (SGD only)')
 cmd:option('-momentum', 0, 'momentum (SGD only)')
 cmd:option('-t0', 1, 'start averaging at t0 (ASGD only), in nb of epochs')
 cmd:option('-maxIter', 2, 'maximum nb of iterations for CG and LBFGS')
+cmd:option('-type', 'double', 'type: double | float | cuda')
+cmd:option('-maxEpoch', 10, 'maximum number of epochs to train')
 cmd:text()
 local opt = cmd:parse(arg or {})
 
@@ -60,86 +62,88 @@ torch.setnumthreads(opt.threads)
 torch.manualSeed(opt.seed)
 
 
--- TODO put these in opt?
--- global constants
-EPSILON = 0.000001
-MAX_EPOCHS = 5 -- TODO
-
 -- saves the model to disk is new_accuracy is larger than old_accuracy by at least EPSILON.
-function savemodel(model, filename, new_accuracy, old_accuracy, epoch, logger)
-   if new_accuracy - old_accuracy > EPSILON  then
-      --logger:add{['Model Updated ==> % mean class accuracy (validation set)'] = new_accuracy}
-      logger:add{epoch-1, new_accuracy}
-      -- save/log current net
-      os.execute('mkdir -p ' .. sys.dirname(filename))
-      print('New model is better ==> saving model to '..filename)
-      torch.save(filename, model)
-   end
+function savemodel(model, filename)
+   -- save/log current net
+   os.execute('mkdir -p ' .. sys.dirname(filename))
+   print('New model is better ==> saving model to '..filename)
+   torch.save(filename, model)
 end
 
 -- defines global loggers
--- TODO de-globalize
+-- TODO get rid of these
 function start_logging()
-   --train_new_name = 'train'..opt.batchSize..'.log'
-   --print (train_new_name)
-   trainLogger = optim.Logger(paths.concat(opt.save, 'train'..opt.batchSize..'.log'))
    valLogger = optim.Logger(paths.concat(opt.save, 'validate'..opt.batchSize..'.log'))  
    testLogger = optim.Logger(paths.concat(opt.save, 'test'..opt.batchSize..'.log'))
-   ModelUpdateLogger = optim.Logger(paths.concat(opt.save, 'ModelUpdateLog'..opt.batchSize..'.log'))
-   ModelUpdateLogger:setNames{'iteration saved', 'validation error'}
 end
 
 
--- This modifies model and logger
-function train_validate_max_epochs(opt, trainData, validateData, model, criterion,
-				   output_filename, train_logger, val_logger, model_update_logger)
-   accuracy_tracker = {}
-   old_accuracy = 0.0
-   
+-- This modifies model and val_logger.
+-- This returns the percentage of samples that were correctly
+-- classified on the validation set and the average number of
+-- milliseconds per sample required to train the model.
+function train_validate_max_epochs(opt, trainData, validateData,
+				   model, criterion, output_filename,
+				   val_logger)
    print '==> defining some tools'
    optimMethod, optimState = choose_optim_method(opt)
-   
-   for epoch = 1,MAX_EPOCHS do
+
+   avg_time_ms = 0.0
+   for epoch = 1,opt.maxEpoch do
       print("==> online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
       -- train.lua
-      train_one_epoch(opt, trainData, optimMethod, optimState, model, criterion, train_logger)
-      -- test.lua
-      val_confusion = evaluate_model(opt, validateData, model, val_logger)
-      
-      new_accuracy = val_confusion.totalValid 
-      table.insert(accuracy_tracker, new_accuracy)
-
-      -- save model if accuracy is high enough
-      savemodel(model, output_filename, new_accuracy, old_accuracy, epoch, model_update_logger)
-      old_accuracy = new_accuracy
+      _, time_ms = train_one_epoch(opt, trainData, optimMethod, optimState, model, criterion)
+      avg_time_ms = avg_time_ms + time_ms
    end
---TODO   print(accuracy_tracker) 
+   avg_time_ms = avg_time_ms / opt.maxEpoch
+   -- test.lua
+   local val_confusion = evaluate_model(opt, validateData, model, val_logger)
+   local val_percent_valid = val_confusion.totalValid * 100
+   
+   return val_percent_valid, avg_time_ms
 end
 
 
 function change_batch_size()
-   -- prepare_data.lua
+     -- prepare_data.lua
    local trainData, validateData, testData = build_datasets(
       opt.size, opt.tr_frac, opt.raw_train_data, opt.raw_test_data)
-   -- prepare_model.lua
-   local model = build_model(opt.model, trainData.mean, trainData.std)
-   local criterion = build_criterion(opt.loss, trainData, validateData, testData, model)
+
+   local timestamp = os.date("%m%d%H%M%S")
+   local accuracy_logger = optim.Logger(paths.concat(opt.save, 'val_accuracy.'..timestamp..'.log'))
+   local train_time_logger = optim.Logger(paths.concat(opt.save, 'train_time.'..timestamp..'.log'))
 
    -- experiment with difference batch sizes
    for i = 1, #opt.batchSizeArray do
+      -- prepare_model.lua
+      local model = build_model(opt.model, trainData.mean, trainData.std)
+      local criterion = build_criterion(opt.loss, trainData, validateData, testData, model)
+
       -- set specific batchsize for expirement
       opt.batchSize = opt.batchSizeArray[i]
       local output_filename = paths.concat(opt.save, 'model'..opt.batchSize..'.net')
       -- change save path to folder for specific batchsize
       start_logging()
       -- train and run validation
-      train_validate_max_epochs(opt, trainData, validateData, model, criterion,
-				output_filename, trainLogger, valLogger, ModelUpdateLogger)
+      local val_percent_valid, avg_train_time_ms =
+	 train_validate_max_epochs(opt, trainData, validateData, model,
+				   criterion, output_filename, valLogger)
+      -- log the validation accuracy and average training time for this batch size
+      accuracy_logger:add{["percent correct"] = val_percent_valid}
+      train_time_logger:add{["average time per epoch per sample"] = avg_train_time_ms}
+      
       -- see how the model does on the test data. Don't save the confusion matrix, just print it.
       print('\n\n')
       print('Test (not validation!) data performance')
       evaluate_model(opt, testData, model, testLogger)
    end
+
+   if opt.plot then
+      accuracy_logger:style{["percent correct"] = '-'}
+      accuracy_logger:plot()
+      train_time_logger:style{["average time per epoch per sample"] = '-'}
+      train_time_logger:plot()
+   end   
 end
 
 change_batch_size()

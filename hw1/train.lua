@@ -44,8 +44,8 @@ function choose_optim_method(opt)
 end
 
 
--- This modifies model and logger
-function train_one_epoch(opt, trainData, optimMethod, optimState, model, criterion, logger)
+-- This modifies model, returns percent accuracy and time in ms.
+function train_one_epoch(opt, trainData, optimMethod, optimState, model, criterion)
    -- local vars
    local time = sys.clock()
 
@@ -131,17 +131,21 @@ function train_one_epoch(opt, trainData, optimMethod, optimState, model, criteri
    -- time taken
    time = sys.clock() - time
    time = time / trainData:size()
-   print("\n==> time to learn 1 sample = " .. (time*1000) .. 'ms')
+   time_ms = time*1000
+   print("\n==> time to learn 1 sample = " .. (time_ms) .. 'ms')
 
-   -- print confusion matrix
+   percent_valid = confusion.totalValid * 100
    print(confusion)
-   --last_global_avg = confusion.totalValid
-   -- update logger/plot
-   logger:add{['% mean class accuracy (train set)'] = confusion.totalValid * 100}
-   if opt.plot then
-      logger:style{['% mean class accuracy (train set)'] = '-'}
-      logger:plot()
-   end
+
+   -- TODO
+   -- --last_global_avg = confusion.totalValid
+   -- -- update logger/plot
+   -- logger:add{['% mean class accuracy (train set)'] = confusion.totalValid * 100}
+   -- if opt.plot then
+   --    logger:style{['% mean class accuracy (train set)'] = '-'}
+   --    logger:plot()
+   -- end
+   return percent_valid, time_ms
 end
 
 
