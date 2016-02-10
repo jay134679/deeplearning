@@ -7,7 +7,7 @@ require 'optim'   -- an optimization package, for online and batch methods
 function choose_optim_method(opt)
    print '==> configuring optimizer'
 
-   if optimization == 'CG' then
+   if opt.optimization == 'CG' then
       optimState = {
 	 maxIter = opt.maxIter
       }
