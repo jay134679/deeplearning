@@ -7,7 +7,7 @@ require 'torch'
 -- splits the training data into a smaller training set and a
 -- validation set based on size and tr_frac.  Then it normalizes the
 -- data and returns training, validate, and test.
-function build_datasets(size, tr_frac, raw_train_data, raw_test_data)
+function build_datasets(size, tr_frac)
    local data_path = 'mnist.t7'
    local train_file = paths.concat(data_path, 'train_32x32.t7')
    local test_file = paths.concat(data_path, 'test_32x32.t7')
