@@ -67,15 +67,10 @@ torch.setnumthreads(opt.threads)
 torch.manualSeed(opt.seed)
 
 
--- saves the model to disk is new_accuracy is larger than old_accuracy by at least EPSILON.
-function savemodel(model, filename, val_percent_valid, old_val_percent_valid)
-   -- save/log current net
-   epsilon = 0.1
-   if val_percent_valid - old_val_percent_valid > epsilon then
-      os.execute('mkdir -p ' .. sys.dirname(filename))
-      print('==> saving model to '..filename)
-      torch.save(filename, model)
-   end
+function savemodel(model, filename)
+   os.execute('mkdir -p ' .. sys.dirname(filename))
+   print('==> saving model to '..filename)
+   torch.save(filename, model)
 end
 
 -- defines global loggers
@@ -97,7 +92,7 @@ function train_validate_max_epochs(opt, trainData, validateData,
    optimMethod, optimState = choose_optim_method(opt)
 
    avg_time_ms = 0.0
-   local old_val_percent_valid = 0
+   local best_val_percent_valid = 0.0
    for epoch = 1,opt.maxEpoch do
       print("==> online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
       -- train.lua
@@ -109,9 +104,13 @@ function train_validate_max_epochs(opt, trainData, validateData,
       local val_percent_valid = val_confusion.totalValid * 100
 
       -- save model if performs better
-      print("OLD Accuracy :::: " .. old_val_percent_valid .. "   NEW Accuracy ... ".. val_percent_valid)
-      savemodel(model, output_filename,val_percent_valid, old_val_percent_valid)
-      old_val_percent_valid = val_percent_valid
+      print("previous best Accuracy :::: " .. best_val_percent_valid .. "   NEW Accuracy ... ".. val_percent_valid)
+      -- only save the new version if it's noticably better
+      if val_percent_valid - best_val_percent_valid > 0.1 then
+	 print('new model is better, saving it')
+	 savemodel(model, output_filename)
+	 best_val_percent_valid = val_percent_valid
+      end
    end
    avg_time_ms = avg_time_ms / opt.maxEpoch
    -- test.lua
