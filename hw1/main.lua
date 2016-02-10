@@ -97,8 +97,8 @@ function train_validate_max_epochs(opt, trainData, validateData,
    optimMethod, optimState = choose_optim_method(opt)
 
    avg_time_ms = 0.0
+   local old_val_percent_valid = 0
    for epoch = 1,opt.maxEpoch do
-      old_val_percent_valid = 0
       print("==> online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
       -- train.lua
       _, time_ms = train_one_epoch(opt, trainData, optimMethod, optimState, model, criterion)
@@ -109,7 +109,7 @@ function train_validate_max_epochs(opt, trainData, validateData,
       local val_percent_valid = val_confusion.totalValid * 100
 
       -- save model if performs better
-      print(old_val_percent_valid .. val_percent_valid)
+      print("OLD Accuracy :::: " .. old_val_percent_valid .. "   NEW Accuracy ... ".. val_percent_valid)
       savemodel(model, output_filename,val_percent_valid, old_val_percent_valid)
       old_val_percent_valid = val_percent_valid
    end
