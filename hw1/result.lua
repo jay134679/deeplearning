@@ -8,6 +8,9 @@
 -- saved model has two extra keys: 'normalized_data_mean' and
 -- 'normalized_data_std'.
 
+-- Example usage:
+-- th result.lua -model_filename results/mymodel.net -output_filename results/myresults.log -size small -experimentName=pinesol
+
 require 'nn'
 require 'optim'
 require 'torch'
@@ -25,11 +28,11 @@ function parse_commandline()
    cmd:text("Homework 1 Results")
    cmd:text()
    cmd:text("Options:")
-   cmd:option('-size', 'tiny', 'how many samples do we load: tiny | small | full')
+   cmd:option('-size', '', 'how many samples do we load: tiny | small | full. Required.')
    cmd:option('-save', 'results', 'subdirectory to save/log experiments in')
    cmd:option('-experimentName', 'results', 'The name of the experiment. Used to name the log files.')
-   cmd:option("-output_filename", "predictions.csv",
-	      "the name of the CSV file that will contain the model's predictions.")
+   cmd:option("-output_filename", "",
+	      "the name of the CSV file that will contain the model's predictions. Required")
    cmd:option("-model_filename", "",
 	      "the name of the file that contains the trained model. Required!")
    cmd:option("-num_data_to_test", -1, "The number of data points to test. If -1, defaults to the size of the test data.")
@@ -94,6 +97,14 @@ function main()
    local options = parse_commandline()
    if options.model_filename == '' then
       print 'ERROR: You must set -model_filename'
+      exit()
+   end
+   if options.output_filename == ''  then
+      print 'ERROR: You must set -output_filename'
+      exit()
+   end
+   if options.size == ''  then
+      print 'ERROR: You must set -size: full | small | tiny'
       exit()
    end
    
