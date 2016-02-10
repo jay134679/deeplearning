@@ -99,11 +99,18 @@ function train_validate_max_epochs(opt, trainData, validateData,
       -- train.lua
       _, time_ms = train_one_epoch(opt, trainData, optimMethod, optimState, model, criterion)
       avg_time_ms = avg_time_ms + time_ms
+      
+      -- run evaluation on validation dataset
+      local val_confusion = evaluate_model(opt, validateData, model, val_logger)
+      local val_percent_valid = val_confusion.totalValid * 100
+
+      -- save model if performs better
+      savemodel(model, output_filename)
    end
    avg_time_ms = avg_time_ms / opt.maxEpoch
    -- test.lua
-   local val_confusion = evaluate_model(opt, validateData, model, val_logger)
-   local val_percent_valid = val_confusion.totalValid * 100
+   -- local val_confusion = evaluate_model(opt, validateData, model, val_logger)
+   -- local val_percent_valid = val_confusion.totalValid * 100
    
    return val_percent_valid, avg_time_ms
 end
@@ -152,7 +159,7 @@ function change_batch_size()
 end
 
 -- Simply loads the data, trains the model until opts.maxEpochs, checks validation set accuracy, checks test set accuracy.
-function train_validate_save_model()
+function train_validate_save_model(output_filename)
     -- prepare_data.lua
    local trainData, validateData, testData = build_datasets(
       opt.size, opt.tr_frac, opt.raw_train_data, opt.raw_test_data)
@@ -177,13 +184,14 @@ function train_validate_save_model()
 
    -- save the final model
    filename = paths.concat(opt.save, opt.experimentName..'.model.'..timestamp..'.net')
-   savemodel(model, filename)   
+   savemodel(model, filename)  
 end
 
 
 -- Example usage:
 -- th main.lua -mode prod -size tiny -maxEpoch 3
 function main()
+   -- set filename
    if opt.experimentName == '' then
       opt.experimentName = opt.mode
    end
