@@ -111,8 +111,7 @@ end
 
 function change_batch_size()
     -- prepare_data.lua
-   local trainData, validateData, testData = build_datasets(
-      opt.size, opt.tr_frac, opt.raw_train_data, opt.raw_test_data)
+   local trainData, validateData, testData = build_datasets(opt.size, opt.tr_frac)
 
    local timestamp = os.date("%m%d%H%M%S")
    local accuracy_logger = optim.Logger(paths.concat(opt.save, 'val_accuracy.'..timestamp..'.log'))
@@ -154,8 +153,7 @@ end
 -- Simply loads the data, trains the model until opts.maxEpochs, checks validation set accuracy, checks test set accuracy.
 function train_validate_save_model()
     -- prepare_data.lua
-   local trainData, validateData, testData = build_datasets(
-      opt.size, opt.tr_frac, opt.raw_train_data, opt.raw_test_data)
+   local trainData, validateData, testData = build_datasets(opt.size, opt.tr_frac)
 
    -- build model and criterion
    local model = build_model(opt.model, trainData.mean, trainData.std)
@@ -176,7 +174,7 @@ function train_validate_save_model()
    evaluate_model(opt, testData, model, test_accuracy_logger)
 
    -- save the final model
-   filename = paths.concat(opt.save, opt.experimentName..'.model.'..timestamp..'.net')
+   filename = paths.concat(opt.save, opt.experimentName..'.final.model.'..timestamp..'.net')
    savemodel(model, filename)   
 end
 
