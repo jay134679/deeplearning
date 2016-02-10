@@ -48,6 +48,7 @@ cmd:option('-maxEpoch', 10, 'maximum number of epochs to train')
 cmd:option('-experimentName', '', 'The name of the experiment. Used to name the log files. Defaults to opt.mode')
 cmd:option('-mode', 'prod', 'chooses what program to run. options: prod | batch_size')
 
+
 cmd:text()
 local opt = cmd:parse(arg or {})
 
