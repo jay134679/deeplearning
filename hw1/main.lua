@@ -42,7 +42,12 @@ cmd:option('-momentum', 0, 'momentum (SGD only)')
 cmd:option('-t0', 1, 'start averaging at t0 (ASGD only), in nb of epochs')
 cmd:option('-maxIter', 2, 'maximum nb of iterations for CG and LBFGS')
 cmd:option('-type', 'double', 'type: double | float | cuda')
+
+-- NEW flags!
 cmd:option('-maxEpoch', 10, 'maximum number of epochs to train')
+cmd:option('-experimentName', '', 'The name of the experiment. Used to name the log files. Defaults to opt.mode')
+cmd:option('-mode', 'prod', 'chooses what program to run. options: prod | batch_size')
+
 cmd:text()
 local opt = cmd:parse(arg or {})
 
@@ -66,7 +71,7 @@ torch.manualSeed(opt.seed)
 function savemodel(model, filename)
    -- save/log current net
    os.execute('mkdir -p ' .. sys.dirname(filename))
-   print('New model is better ==> saving model to '..filename)
+   print('==> saving model to '..filename)
    torch.save(filename, model)
 end
 
@@ -105,7 +110,7 @@ end
 
 
 function change_batch_size()
-     -- prepare_data.lua
+    -- prepare_data.lua
    local trainData, validateData, testData = build_datasets(
       opt.size, opt.tr_frac, opt.raw_train_data, opt.raw_test_data)
 
@@ -146,4 +151,52 @@ function change_batch_size()
    end   
 end
 
-change_batch_size()
+-- Simply loads the data, trains the model until opts.maxEpochs, checks validation set accuracy, checks test set accuracy.
+function train_validate_save_model()
+    -- prepare_data.lua
+   local trainData, validateData, testData = build_datasets(
+      opt.size, opt.tr_frac, opt.raw_train_data, opt.raw_test_data)
+
+   -- build model and criterion
+   local model = build_model(opt.model, trainData.mean, trainData.std)
+   local criterion = build_criterion(opt.loss, trainData, validateData, testData, model)
+
+   -- set up loggers
+   local timestamp = os.date("%m%d%H%M%S")
+   local val_accuracy_logger = optim.Logger(paths.concat(opt.save, opt.experimentName..'.val_accuracy.'..timestamp..'.log'))
+   local test_accuracy_logger = optim.Logger(paths.concat(opt.save, opt.experimentName..'.test_accuracy.'..timestamp..'.log'))
+   
+   local val_percent_valid, avg_train_time_ms =
+      train_validate_max_epochs(opt, trainData, validateData, model,
+				criterion, output_filename, val_accuracy_logger)
+
+   -- print how the model does on the test data.
+   print('\n\n')
+   print('Test (not validation!) data performance')
+   evaluate_model(opt, testData, model, test_accuracy_logger)
+
+   -- save the final model
+   filename = paths.concat(opt.save, opt.experimentName..'.model.'..timestamp..'.net')
+   savemodel(model, filename)   
+end
+
+
+-- Example usage:
+-- th main.lua -mode prod -size tiny -maxEpoch 3
+function main()
+   if opt.experimentName == '' then
+      opt.experimentName = opt.mode
+   end
+   
+   if opt.mode == 'prod' then
+      train_validate_save_model()
+   elseif opt.mode == 'batch_size' then
+      change_batch_size()
+   -- TODO add more modes here.
+   else
+      print('no running mode chosen! Set the -mode flag')
+   end
+end
+
+
+main()
