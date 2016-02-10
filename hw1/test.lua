@@ -53,9 +53,9 @@ function evaluate_model(opt, eval_data, model, logger)
    print(confusion)
 
    -- update log/plot
-   logger:add{['% mean class accuracy (test set)'] = confusion.totalValid * 100}
+   logger:add{['% mean class accuracy'] = confusion.totalValid * 100}
    if opt.plot then
-      logger:style{['% mean class accuracy (test set)'] = '-'}
+      logger:style{['% mean class accuracy'] = '-'}
       logger:plot()
    end
 

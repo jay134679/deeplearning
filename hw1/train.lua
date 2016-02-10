@@ -135,7 +135,7 @@ function train_one_epoch(opt, trainData, optimMethod, optimState, model, criteri
    print("\n==> time to learn 1 sample = " .. (time_ms) .. 'ms')
 
    percent_valid = confusion.totalValid * 100
-   print(confusion)
+   -- print(confusion)
 
    -- TODO
    -- --last_global_avg = confusion.totalValid

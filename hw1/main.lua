@@ -68,11 +68,14 @@ torch.manualSeed(opt.seed)
 
 
 -- saves the model to disk is new_accuracy is larger than old_accuracy by at least EPSILON.
-function savemodel(model, filename)
+function savemodel(model, filename, val_percent_valid, old_val_percent_valid)
    -- save/log current net
-   os.execute('mkdir -p ' .. sys.dirname(filename))
-   print('==> saving model to '..filename)
-   torch.save(filename, model)
+   epsilon = 0.1
+   if val_percent_valid - old_val_percent_valid > epsilon then
+      os.execute('mkdir -p ' .. sys.dirname(filename))
+      print('==> saving model to '..filename)
+      torch.save(filename, model)
+   end
 end
 
 -- defines global loggers
@@ -95,6 +98,7 @@ function train_validate_max_epochs(opt, trainData, validateData,
 
    avg_time_ms = 0.0
    for epoch = 1,opt.maxEpoch do
+      old_val_percent_valid = 0
       print("==> online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
       -- train.lua
       _, time_ms = train_one_epoch(opt, trainData, optimMethod, optimState, model, criterion)
@@ -105,7 +109,9 @@ function train_validate_max_epochs(opt, trainData, validateData,
       local val_percent_valid = val_confusion.totalValid * 100
 
       -- save model if performs better
-      savemodel(model, output_filename)
+      print(old_val_percent_valid .. val_percent_valid)
+      savemodel(model, output_filename,val_percent_valid, old_val_percent_valid)
+      old_val_percent_valid = val_percent_valid
    end
    avg_time_ms = avg_time_ms / opt.maxEpoch
    -- test.lua
@@ -115,7 +121,7 @@ function train_validate_max_epochs(opt, trainData, validateData,
    return val_percent_valid, avg_time_ms
 end
 
-
+--[[
 function change_batch_size()
     -- prepare_data.lua
    local trainData, validateData, testData = build_datasets(
@@ -157,9 +163,19 @@ function change_batch_size()
       train_time_logger:plot()
    end   
 end
+]]
 
 -- Simply loads the data, trains the model until opts.maxEpochs, checks validation set accuracy, checks test set accuracy.
-function train_validate_save_model(output_filename)
+function train_validate_save_model()
+
+    -- set up loggers
+   local timestamp = os.date("%m%d%H%M%S")
+   local val_accuracy_logger = optim.Logger(paths.concat(opt.save, opt.experimentName..'.val_accuracy.'..timestamp..'.log'))
+   local test_accuracy_logger = optim.Logger(paths.concat(opt.save, opt.experimentName..'.test_accuracy.'..timestamp..'.log'))
+
+    -- prepare file to save model
+    output_filename = paths.concat(opt.save, opt.experimentName..'.model.'..timestamp..'.net')
+
     -- prepare_data.lua
    local trainData, validateData, testData = build_datasets(
       opt.size, opt.tr_frac, opt.raw_train_data, opt.raw_test_data)
@@ -168,11 +184,6 @@ function train_validate_save_model(output_filename)
    local model = build_model(opt.model, trainData.mean, trainData.std)
    local criterion = build_criterion(opt.loss, trainData, validateData, testData, model)
 
-   -- set up loggers
-   local timestamp = os.date("%m%d%H%M%S")
-   local val_accuracy_logger = optim.Logger(paths.concat(opt.save, opt.experimentName..'.val_accuracy.'..timestamp..'.log'))
-   local test_accuracy_logger = optim.Logger(paths.concat(opt.save, opt.experimentName..'.test_accuracy.'..timestamp..'.log'))
-   
    local val_percent_valid, avg_train_time_ms =
       train_validate_max_epochs(opt, trainData, validateData, model,
 				criterion, output_filename, val_accuracy_logger)
@@ -183,8 +194,8 @@ function train_validate_save_model(output_filename)
    evaluate_model(opt, testData, model, test_accuracy_logger)
 
    -- save the final model
-   filename = paths.concat(opt.save, opt.experimentName..'.model.'..timestamp..'.net')
-   savemodel(model, filename)  
+   --filename = paths.concat(opt.save, opt.experimentName..'.model.'..timestamp..'.net')
+   --savemodel(model, output_filename)  
 end
 
 
@@ -192,14 +203,16 @@ end
 -- th main.lua -mode prod -size tiny -maxEpoch 3
 function main()
    -- set filename
+   --filename = paths.concat(opt.save, opt.experimentName..'.model.'..timestamp..'.net')
+
    if opt.experimentName == '' then
       opt.experimentName = opt.mode
    end
    
    if opt.mode == 'prod' then
       train_validate_save_model()
-   elseif opt.mode == 'batch_size' then
-      change_batch_size()
+   --[[elseif opt.mode == 'batch_size' then
+      change_batch_size()]]
    -- TODO add more modes here.
    else
       print('no running mode chosen! Set the -mode flag')
