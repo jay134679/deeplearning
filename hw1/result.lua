@@ -7,7 +7,7 @@
 -- By default, it writes its predictions to results/predictions.csv.
 --
 -- IMPORTANT NOTE
--- This script relies on the 'prepare_data.lua' files written
+-- This script relies on the 'prepare_data.lua' file written
 -- for this assignment. They must be in lua's file lookup path in order for this
 -- script to run.
 
@@ -102,6 +102,8 @@ function write_predictions_csv(predictions_str, output_filename)
 end
 
 
+-- This is the function that runs the script. It checks the command line flags
+-- and executes the program.
 function main()
    local options = parse_commandline()
    if options.model_filename == '' then
