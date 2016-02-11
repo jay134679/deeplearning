@@ -41,7 +41,7 @@ http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf
 ** TODO Go over lecture 2 slides
    
 
-* TODO homework 1
+* DONE homework 1
 http://cilvr.nyu.edu/lib/exe/fetch.php?media=deeplearning:2016:a1.pdf
 ** DONE Find solutions for problem 1
 *** DONE Solve problem 1.1
@@ -49,7 +49,7 @@ http://cilvr.nyu.edu/lib/exe/fetch.php?media=deeplearning:2016:a1.pdf
 *** CANCELLED Solve problem 1.3
 ** DONE Write up solutions for problem 1
 Use itorch notebook
-** TODO Go through itorch notebook tutorial
+** DONE Go through itorch notebook tutorial
 http://code.madbits.com/wiki/doku.php?id=tutorial_supervised
 *** DONE 1. Data prep
 **** TODO What is the difference between the colon and dot operators?
@@ -76,7 +76,7 @@ if x ~= parameters then
 **** TODO Understand this conceptually
 *** 5. Testing
 nothing new to do
-** TODO Read and understand MNIST sample code
+** DONE Read and understand MNIST sample code
 https://github.com/yjxiao/ds-ga-1008-a1
 ** DONE Run MNIST code on CIMSa
 running locally instead
@@ -92,7 +92,7 @@ actually, it's slower on cims!
 
 
 ** DONE Why don't the results from result.lua match those from doall?
-** TODO improve performance of given model
+** DONE improve performance of given model
 *** DONE Add validation as suggested in the testing part of the tutorial
 *** DONE Get the model to stop training once it 'converges'
 
@@ -100,19 +100,27 @@ actually, it's slower on cims!
 *** DONE convert and save the pictures
 *** DONE add graphs to notebook
 *** DONE save your changes to git
-*** TODO Try the different model, loss function, and training ideas from the tutorial
-** TODO do a full run of the simple model on the validation set so we have something to turn in
-** TODO compare predictions.csv to someone else
-** TODO write report on your model structure, training process, experiments, results, etc.
+*** DONE Try the different model, loss function, and training ideas from the tutorial
+** DONE do a full run of the simple model on the validation set so we have something to turn in
+** DONE compare predictions.csv to someone else
+** DONE write report on your model structure, training process, experiments, results, etc.
 We expect a rather formal report written with Latex
 use itorch notebook
-** TODO Expose trained model file via CIMS
+** DONE Expose trained model file via CIMS
 http://cims.nyu.edu/webapps/content/systems/userservices/webhosting f
-** TODO Submit predictions.csv to Kaggle
-** TODO Email final submission to TA
+** DONE Submit predictions.csv to Kaggle
+** DONE Email final submission to TA
 predictions.csv + result.lua + writeup
 
 Send your submission (writeup and result.lua) to your corresponding TA by the deadline.
 Merge your solutions to section 1 with the writeup from section 2. Include a link to the
 trained model file in the email. Please use the following title for your email.
 [DS-GA-1008 YOUR_TEAM_NAME] Submission A1
+
+* Week 3 studying
+** TODO Reinstall torch and emacs
+** TODO Go over NN notebook 
+https://nbviewer.jupyter.org/github/mayanks43/NYU-DL-2016/blob/master/NN.ipynb
+** TODO Go over the CNNs notebook
+https://nbviewer.jupyter.org/github/mayanks43/NYU-DL-2016/blob/master/CNNs.ipynb
+
