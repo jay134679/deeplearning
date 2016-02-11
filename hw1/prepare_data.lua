@@ -1,12 +1,17 @@
+-- Homework 1: prepare_data.lua
+-- Maya Rotmensch (mer567) and Alex Pine (akp258)
 
 require 'torch'
 
--- first thi tries to load data from a directory 'mnist.t7', and
--- downloads it if it's not there.  Once the data files has been
--- acquired, they are loaded into torch files and returned.  Then it
--- splits the training data into a smaller training set and a
--- validation set based on size and tr_frac.  Then it normalizes the
--- data and returns training, validate, and test.
+-- THis function  tries to load data from a directory 'mnist.t7', and downloads
+-- it if it's not there. Once the data files have been acquired, they are loaded
+-- into tensors. The training set is split into training data into a smaller
+-- training set and a validation set based on 'size' and 'tr_frac'. 'size'
+-- determines how much of the data files are loaded, and 'tr_frac' is a float
+-- between 0 and 1 that determines how much of the training data is actually
+-- used for training. The remainder, 1-tr_frac, is used as a validation set.
+-- Finally, this function returns three tensors: the training data, the
+-- validation data, and the test data.
 function build_datasets(size, tr_frac)
    local data_path = 'mnist.t7'
    local train_file = paths.concat(data_path, 'train_32x32.t7')
