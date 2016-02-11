@@ -42,7 +42,7 @@ function parse_commandline()
    cmd:option('-save', 'results', 'subdirectory to save/log experiments in')
    cmd:option("-output_filename", "predictions.csv",
 	      "the name of the CSV file that will contain the model's predictions. Required")
-   cmd:option("-model_filename", "",
+   cmd:option("-model_filename", "convnet_long_best.net",
 	      "the name of the file that contains the trained model. Required!")
    cmd:option("-num_data_to_test", -1, "The number of data points to test. If -1, defaults to the size of the test data.")
    cmd:text()
