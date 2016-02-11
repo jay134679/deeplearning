@@ -1,6 +1,6 @@
--- main.lua
--- Trains, validates, and tests data for homework 1.
+-- Homework 1: main.lua
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
+-- Trains, validates, and tests data for homework 1.
 
 -- local libs
 require 'prepare_data'
@@ -35,7 +35,6 @@ cmd:option('-plot', false, 'live plot') -- TODO
 cmd:option('-optimization', 'SGD', 'optimization method: SGD | ASGD | CG | LBFGS')
 cmd:option('-learningRate', 1e-3, 'learning rate at t=0')
 cmd:option('-batchSize', 1, 'mini-batch size (1 = pure stochastic)')
--- TODO this shouldn't be an option, because there is no way to override it on the commandline
 cmd:option('-batchSizeArray', {1,10,50,100}, 'batch sizes to try')
 cmd:option('-weightDecay', 0, 'weight decay (SGD only)')
 cmd:option('-momentum', 0, 'momentum (SGD only)')
@@ -121,7 +120,9 @@ function train_validate_max_epochs(opt, trainData, validateData,
    return val_percent_valid, avg_time_ms
 end
 
---[[
+-- This function goes through the opt.batchSizeArray, and trains a model using
+-- each of its values as the training mini-batch size. The accuracy and training
+-- time for each model is saved in Logger objects.
 function change_batch_size()
     -- prepare_data.lua
    local trainData, validateData, testData = build_datasets(opt.size, opt.tr_frac)
@@ -162,7 +163,7 @@ function change_batch_size()
       train_time_logger:plot()
    end   
 end
-]]
+
 
 -- Simply loads the data, trains the model until opts.maxEpochs, checks validation set accuracy, checks test set accuracy.
 function train_validate_save_model()

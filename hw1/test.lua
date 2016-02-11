@@ -1,3 +1,5 @@
+-- Homework 1: test.lua
+-- Maya Rotmensch (mer567) and Alex Pine (akp258)
 
 require 'torch'   -- torch
 require 'xlua'    -- xlua provides useful tools, like progress bars

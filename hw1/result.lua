@@ -2,22 +2,32 @@
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 --
 -- This script loads a trained MNIST model, and makes predictions on
--- the test data in 'mnist.t7/test_32x32.t7'. By default, it writes
--- its predictions to a file named predictions.csv, and loads the
--- model from results/model.net.  NOTE: This script assumes that the
--- saved model has two extra keys: 'normalized_data_mean' and
--- 'normalized_data_std'.
+-- the test data in 'mnist.t7/test_32x32.t7'.
+-- The user must specify the model file name via the 'model_filename' flag.
+-- By default, it writes its predictions to predictions.csv.
+--
+-- IMPORTANT NOTE
+-- This script relies on the 'prepare_data.lua' file written
+-- for this assignment. They must be in lua's file lookup path in order for this
+-- script to run.
 
 -- Example usage:
--- th result.lua -model_filename results/mymodel.net -output_filename results/myresults.log -size small -experimentName=pinesol
+-- Example 1: Load model in results/mymodel.net, and write the output to
+-- results/predictions.csv:
+--
+-- th result.lua -model_filename results/mymodel.net
+
+-- Example 2: Only load the 'small' test data test, load model in
+-- results/mymodel.net, and write the output to predictions.csv:
+--
+-- th result.lua -size small -model_filename results/mymodel.net -output_filename results/myresults.log
 
 require 'nn'
 require 'optim'
 require 'torch'
 
--- our code
+-- our custom code. This must be in the same directory.
 require 'prepare_data'
-require 'test'
 
 
 -- Parses the global 'arg' variable to get commandline arguments.
@@ -28,10 +38,9 @@ function parse_commandline()
    cmd:text("Homework 1 Results")
    cmd:text()
    cmd:text("Options:")
-   cmd:option('-size', '', 'how many samples do we load: tiny | small | full. Required.')
+   cmd:option('-size', 'full', 'how many samples do we load from test data: tiny | small | full. Required.')
    cmd:option('-save', 'results', 'subdirectory to save/log experiments in')
-   cmd:option('-experimentName', 'results', 'The name of the experiment. Used to name the log files.')
-   cmd:option("-output_filename", "",
+   cmd:option("-output_filename", "predictions.csv",
 	      "the name of the CSV file that will contain the model's predictions. Required")
    cmd:option("-model_filename", "",
 	      "the name of the file that contains the trained model. Required!")
@@ -93,6 +102,8 @@ function write_predictions_csv(predictions_str, output_filename)
 end
 
 
+-- This is the function that runs the script. It checks the command line flags
+-- and executes the program.
 function main()
    local options = parse_commandline()
    if options.model_filename == '' then
@@ -111,15 +122,7 @@ function main()
    local dummy_frac = 0.75
    local _, _, testData = build_datasets(options.size, dummy_frac)
    local model = torch.load(options.model_filename)
-
-   local timestamp = os.date("%m%d%H%M%S")
-   local test_accuracy_logger = optim.Logger(
-      paths.concat(options.save,
-		   options.experimentName..'.prediction_test_accuracy.'..timestamp..'.log'))
-   
-   print('Final test data performance')
-   evaluate_model(options, testData, model, test_accuracy_logger)
-   
+      
    local predictions_str = create_predictions_string(model, testData)
    write_predictions_csv(predictions_str, options.output_filename)
 end
