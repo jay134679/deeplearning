@@ -4,7 +4,7 @@
 -- This script loads a trained MNIST model, and makes predictions on
 -- the test data in 'mnist.t7/test_32x32.t7'.
 -- The user must specify the model file name via the 'model_filename' flag.
--- By default, it writes its predictions to results/predictions.csv.
+-- By default, it writes its predictions to predictions.csv.
 --
 -- IMPORTANT NOTE
 -- This script relies on the 'prepare_data.lua' file written
@@ -18,7 +18,7 @@
 -- th result.lua -model_filename results/mymodel.net
 
 -- Example 2: Only load the 'small' test data test, load model in
--- results/mymodel.net, and write the output to results/predictions.csv:
+-- results/mymodel.net, and write the output to predictions.csv:
 --
 -- th result.lua -size small -model_filename results/mymodel.net -output_filename results/myresults.log
 
@@ -40,7 +40,7 @@ function parse_commandline()
    cmd:text("Options:")
    cmd:option('-size', 'full', 'how many samples do we load from test data: tiny | small | full. Required.')
    cmd:option('-save', 'results', 'subdirectory to save/log experiments in')
-   cmd:option("-output_filename", "results/predictions.csv",
+   cmd:option("-output_filename", "predictions.csv",
 	      "the name of the CSV file that will contain the model's predictions. Required")
    cmd:option("-model_filename", "",
 	      "the name of the file that contains the trained model. Required!")
