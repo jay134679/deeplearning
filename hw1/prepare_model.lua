@@ -1,3 +1,6 @@
+-- Homework 1: prepare_model.lua
+-- Maya Rotmensch (mer567) and Alex Pine (akp258)
+
 
 require 'torch'   -- torch
 require 'image'   -- for image transforms
