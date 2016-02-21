@@ -125,9 +125,12 @@ https://nbviewer.jupyter.org/github/mayanks43/NYU-DL-2016/blob/master/NN.ipynb
 https://nbviewer.jupyter.org/github/mayanks43/NYU-DL-2016/blob/master/CNNs.ipynb
 
 
-* DONE Setup AWS
 
-** setting up awscli
+* TODO Homework 4
+https://d1b10bmlvqabco.cloudfront.net/attach/iicl1y199833v4/ie3efsaul1h3xo/iksnmh1oi53c/dsga1008a2.pdf
+https://docs.google.com/document/d/1U03sfWe_0SqD40P51h19OMK_l3Nx2phmH0Fs0ilX2bs/edit
+** DONE Setup AWS
+
 pip instal awscli
 failed
 failed with sudo too
@@ -136,27 +139,21 @@ fail
 found https://github.com/pypa/pip/issues/3165
 sudo pip install awscli --upgrade --ignore-installed six
 
-** sshing in
-chmod 600 ~/Desktop/leconv/leconv.pem
-ssh -i ~/Desktop/leconv/leconv.pem ubuntu@52.90.3.178
-
-** stopping our instance
-aws ec2 stop-instances --instance-ids i-1a2b3c4d
-fail
-that's because that's not our instance id
-aws ec2 stop-instances --instance-ids i-f90f127c
-fail, need to specify a region
-aws ec2 stop-instances --instance-ids i-f90f127c --region us-east-1b
-failed: 'NoneType' object has no attribute 'get_frozen_credentials'
-charlie says replace 'us-east-1' with 'us-east-1b'
+*** usage
+ssh -i ~/Desktop/leconv/leconv.pem ubuntu@ec2-54-208-133-48.compute-1.amazonaws.com
 aws ec2 stop-instances --instance-ids i-f90f127c --region us-east-1
-worked
 
+** DONE install CUDA
+http://docs.nvidia.com/cuda/cuda-getting-started-guide-for-mac-os-x
+export PATH=/Developer/NVIDIA/CUDA-7.0/bin:$PATH
+export DYLD_LIBRARY_PATH=/Developer/NVIDIA/CUDA-7.0/lib:$DYLD_LIBRARY_PATH
 
-* TODO Homework 4
-** figure out scheduling
-https://d1b10bmlvqabco.cloudfront.net/attach/iicl1y199833v4/ie3efsaul1h3xo/iksnmh1oi53c/dsga1008a2.pdf
-https://docs.google.com/document/d/1U03sfWe_0SqD40P51h19OMK_l3Nx2phmH0Fs0ilX2bs/edit
+xcode-select --install
+luarocks install cutorch
+luarocks install cunn
+
+cudnn doesn't work. I wonder if it's installed on aws?
+
 ** Math problem 1
 ** Math problem 2
 paper
@@ -181,8 +178,9 @@ http://arxiv.org/pdf/1506.02351.pdf
 http://arxiv.org/pdf/1412.6597v4.pdf
 ** prepare experimental environment
 ** do full evaluation without unlabeled data
+** parse unlabeled data
 ** Write result.lua
-** enhance data augmentation
+** improve data augmentation
 ** Unlabeled data experiments
 ** Visualization
 *** Visualizing filters and augmentations

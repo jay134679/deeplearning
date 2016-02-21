@@ -2,6 +2,7 @@
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 -- Trains, validates, and tests data for homework 2.
 
+require 'cunn'
 require 'torch'
 local c = require 'trepl.colorize'
 
@@ -9,6 +10,7 @@ local c = require 'trepl.colorize'
 require 'augment_data'
 require 'exp_setup'
 require 'provider'
+require 'train'
 
 function parse_cmdline()
    local opt = lapp[[
@@ -29,22 +31,23 @@ function parse_cmdline()
    return opt
 end
 
-function load_provider()
+function load_provider(size)
    print(c.blue '==>' ..' loading data')
    -- TODO delete provider.t7 this file once you add unlabeled data to provider.lua.
-   data_file = io.open('provider.t7', 'r')
+   data_filename = 'provider.'..size..'.t7'
+   data_file = io.open(data_filename, 'r')
    if data_file ~= nil then
       DEBUG('loading data from file...')
-      provider = torch.load('provider.t7')
+      provider = torch.load(data_filename)
    else
       DEBUG('downloading data...')
-      provider = Provider()
+      provider = Provider(size)
       provider:normalize()
       -- TODO does the 'float' call have to be changed in cuda mode?
       -- Jake leaves them as float in his cuda code...
       provider.trainData.data = provider.trainData.data:float()
       provider.valData.data = provider.valData.data:float()
-      torch.save('provider.t7', provider)
+      torch.save(data_filename, provider)
    end
    return provider
 end
@@ -53,10 +56,10 @@ end
 -- NOTE: The main model MUST be the third thing. Validation asssumes it is.
 function load_model(model_name)
    local model = nn.Sequential()
-   add_batch_flip(model) -- TODO 
+   add_batch_flip(model) -- TODO confirm this works
    model:add(nn.Copy('torch.FloatTensor','torch.CudaTensor'):cuda())
    -- NOTE: This layer must be the third one!
-   model:add(dofile('models/'..model_name..'.lua'):cuda())
+   model:add(dofile('models/'..model_name..'.lua'):cuda()) -- TODO vgg model OOMs here
    model:get(2).updateGradInput = function(input) return end
 
    -- TODO will we ever have access to cudnn?

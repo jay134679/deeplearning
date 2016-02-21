@@ -3,6 +3,7 @@
 -- Original code written by jakezhao.
 -- Data loading and parsing code.
 
+-- TODO parse test data
 -- TODO make a tiny data set for code testing
 -- TODO parse unlabeled data
 
@@ -18,71 +19,122 @@ function parseDataLabel(d, numSamples, numChannels, height, width)
    local t = torch.ByteTensor(numSamples, numChannels, height, width)
    local l = torch.ByteTensor(numSamples)
    local idx = 1
+   print('num samples '..numSamples)
+   done = false
    for i = 1, #d do
       local this_d = d[i]
       for j = 1, #this_d do
-    t[idx]:copy(this_d[j])
-    l[idx] = i
-    idx = idx + 1
+	 if idx > numSamples then
+	    done = true
+	    break
+	 end
+	 t[idx]:copy(this_d[j])
+	 l[idx] = i
+	 idx = idx + 1
       end
+      if done then break end
    end
-   assert(idx == numSamples+1)
    return t, l
 end
 
 
 local Provider = torch.class 'Provider'
 
-function Provider:__init(full)
-  local trsize = 4000
-  local valsize = 1000  -- Use the validation here as the valing set
-  local channel = 3
-  local height = 96
-  local width = 96
-
+function Provider:__init(size) -- TODO use this arg
   -- download dataset
-  if not paths.dirp('stl-10') then
-     os.execute('mkdir stl-10')
-     local www = {
+   if not paths.dirp('stl-10') then
+      os.execute('mkdir stl-10')
+      local www = {
          train = 'https://s3.amazonaws.com/dsga1008-spring16/data/a2/train.t7b',
          val = 'https://s3.amazonaws.com/dsga1008-spring16/data/a2/val.t7b',
          extra = 'https://s3.amazonaws.com/dsga1008-spring16/data/a2/extra.t7b',
          test = 'https://s3.amazonaws.com/dsga1008-spring16/data/a2/test.t7b'
-     }
+      }
+      
+      os.execute('wget ' .. www.train .. '; '.. 'mv train.t7b stl-10/train.t7b')
+      os.execute('wget ' .. www.val .. '; '.. 'mv val.t7b stl-10/val.t7b')
+      os.execute('wget ' .. www.test .. '; '.. 'mv test.t7b stl-10/test.t7b')
+      os.execute('wget ' .. www.extra .. '; '.. 'mv extra.t7b stl-10/extra.t7b')
+   end
+   
+   local raw_train = torch.load('stl-10/train.t7b')
+   local raw_val = torch.load('stl-10/val.t7b')
+   local raw_test = torch.load('stl-10/test.t7b')
+   
+   local trsize = 0
+   local valsize = 0
+   local testsize = 0
+   if size == 'full' then
+      DEBUG('==> using regular, full training data')
+      trsize = 4000
+      valsize = 1000
+      testsize = 8000
+      -- the size of these files is known ahead of time, double check.
+--TODO how big is test?      assert(testsize == TODO)
+   elseif size == 'small' then
+      print '==> using reduced training data, for fast experiments'
+      trsize = 1000
+      valsize = 250
+      testsize = 2000
+   elseif size == 'tiny' then
+      print '==> using tiny training data, for code testing'
+      trsize = 100
+      valsize = 25
+      testsize = 200
+   end
+   if trsize == 0 then
+      error("ERROR: unregconized value for 'size' string: "..size..". Choose 'full', 'small', or 'tiny'.")
+   end
 
-     os.execute('wget ' .. www.train .. '; '.. 'mv train.t7b stl-10/train.t7b')
-     os.execute('wget ' .. www.val .. '; '.. 'mv val.t7b stl-10/val.t7b')
-     os.execute('wget ' .. www.test .. '; '.. 'mv test.t7b stl-10/test.t7b')
-     os.execute('wget ' .. www.extra .. '; '.. 'mv extra.t7b stl-10/extra.t7b')
-  end
+   local channel = 3
+   local height = 96
+   local width = 96
+  
+   -- load and parse dataset
 
-  local raw_train = torch.load('stl-10/train.t7b')
-  local raw_val = torch.load('stl-10/val.t7b')
-
-  -- load and parse dataset
-  self.trainData = {
-     data = torch.Tensor(),
-     labels = torch.Tensor(),
-     size = function() return trsize end
-  }
-  self.trainData.data, self.trainData.labels = parseDataLabel(
-     raw_train.data, trsize, channel, height, width)
-  local trainData = self.trainData
-  self.valData = {
-     data = torch.Tensor(),
-     labels = torch.Tensor(),
-     size = function() return valsize end
-  }
-  self.valData.data, self.valData.labels = parseDataLabel(raw_val.data,
-                                                 valsize, channel, height, width)
-  local valData = self.valData
-
-  -- convert from ByteTensor to Float
-  self.trainData.data = self.trainData.data:float()
-  self.trainData.labels = self.trainData.labels:float()
-  self.valData.data = self.valData.data:float()
-  self.valData.labels = self.valData.labels:float()
-  collectgarbage()
+   -- train
+   print('loading training data')
+   self.trainData = {
+      data = torch.Tensor(),
+      labels = torch.Tensor(),
+      size = function() return trsize end
+   }
+   self.trainData.data, self.trainData.labels = parseDataLabel(
+      raw_train.data, trsize, channel, height, width)
+   local trainData = self.trainData
+   
+   -- validation
+   print('loading validation data')
+   self.valData = {
+      data = torch.Tensor(),
+      labels = torch.Tensor(),
+      size = function() return valsize end
+   }
+   self.valData.data, self.valData.labels = parseDataLabel(
+      raw_val.data, valsize, channel, height, width)
+   local valData = self.valData
+   
+   -- test
+   print('loading test data')
+   self.testData = {
+      data = torch.Tensor(),
+      labels = torch.Tensor(),
+      size = function() return testsize end
+   }
+   self.testData.data, self.testData.labels = parseDataLabel(
+      raw_test.data, testsize, channel, height, width)
+   
+   -- TODO extra
+   
+   -- convert from ByteTensor to Float
+   self.trainData.data = self.trainData.data:float()
+   self.trainData.labels = self.trainData.labels:float()
+   self.valData.data = self.valData.data:float()
+   self.valData.labels = self.valData.labels:float()
+   self.testData.data = self.testData.data:float()
+   self.testData.labels = self.testData.labels:float()
+   -- TODO extra
+   collectgarbage()
 end
 
 function Provider:normalize()
@@ -91,7 +143,10 @@ function Provider:normalize()
   --
   local trainData = self.trainData
   local valData = self.valData
-
+  local testData = self.testData
+  
+  -- TODO extra
+  
   print '<trainer> preprocessing data (color space + normalization)'
   collectgarbage()
 
@@ -138,4 +193,22 @@ function Provider:normalize()
   -- normalize v globally:
   valData.data:select(2,3):add(-mean_v)
   valData.data:select(2,3):div(std_v)
+
+  -- preprocess testSet
+  for i = 1,testData:size() do
+    xlua.progress(i, testData:size())
+     -- rgb -> yuv
+     local rgb = testData.data[i]
+     local yuv = image.rgb2yuv(rgb)
+     -- normalize y locally:
+     yuv[{1}] = normalization(yuv[{{1}}])
+     testData.data[i] = yuv
+  end
+  -- normalize u globally:
+  testData.data:select(2,2):add(-mean_u)
+  testData.data:select(2,2):div(std_u)
+  -- normalize v globally:
+  testData.data:select(2,3):add(-mean_v)
+  testData.data:select(2,3):div(std_v)
+  
 end

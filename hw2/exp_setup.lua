@@ -61,7 +61,7 @@ end
 -- Assumes CREATE_DEBUG_LOG has already been called.
 function DEBUG(message)
    if DEBUG_FILE ~= nil then
-      DEBUG_FILE:write(message..'\n')
+      DEBUG_FILE:write(tostring(message)..'\n')
    else
       print('[ERROR] DEBUG_FILE global var is nil')
    end

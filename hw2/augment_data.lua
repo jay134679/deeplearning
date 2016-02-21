@@ -21,10 +21,11 @@ do
     end
     self.output:set(input)
     return self.output
-  end
+  end  
 end
 
 -- Adds the BatchFlip data augmentation layer to the given model.
 function add_batch_flip(model)
    model:add(nn.BatchFlip():float())
 end
+

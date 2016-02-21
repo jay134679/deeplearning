@@ -17,7 +17,7 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
    
    local targets = torch.CudaTensor(opt.batchSize)
    -- TODO huh?
-   local indices = torch.randperm(-trainData.data:size(1)):long():split(opt.batchSize)
+   local indices = torch.randperm(trainData.data:size(1)):long():split(opt.batchSize)
    -- remove last element so that all the batches have equal size
    indices[#indices] = nil
 
@@ -44,7 +44,7 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
 	 
 	 return f, gradParameters
       end
-      optim.sgd(feval, parameters, optimState)
+      optim.sgd(feval, parameters, optimState) -- TODO it's dying here
    end
    
    confusion:updateValids()
