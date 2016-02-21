@@ -131,6 +131,10 @@ https://d1b10bmlvqabco.cloudfront.net/attach/iicl1y199833v4/ie3efsaul1h3xo/iksnm
 https://docs.google.com/document/d/1U03sfWe_0SqD40P51h19OMK_l3Nx2phmH0Fs0ilX2bs/edit
 ** DONE Setup AWS
 
+account number 398454964695
+
+https://398454964695.signin.aws.amazon.com/console
+
 pip instal awscli
 failed
 failed with sudo too
@@ -140,7 +144,11 @@ found https://github.com/pypa/pip/issues/3165
 sudo pip install awscli --upgrade --ignore-installed six
 
 *** usage
-ssh -i ~/Desktop/leconv/leconv.pem ubuntu@ec2-54-208-133-48.compute-1.amazonaws.com
+
+aws ec2 start-instances --instance-ids i-f90f127c --region us-east-1
+
+ssh -i ~/Desktop/leconv/leconv.pem ubuntu@ec2-54-84-219-83.compute-1.amazonaws.com
+
 aws ec2 stop-instances --instance-ids i-f90f127c --region us-east-1
 
 ** DONE install CUDA
