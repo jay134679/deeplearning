@@ -22,7 +22,7 @@ function parse_cmdline()
       --learningRateDecay     (default 1e-7)      learning rate decay
       --weightDecay           (default 0.0005)      weightDecay
       -m,--momentum           (default 0.9)         momentum
-      --epoch_step            (default 25)          epoch step
+      --epoch_step            (default 25)          reduce learning rate every this many epochs
       --max_epoch             (default 300)         maximum number of iterations
       --model                 (default vgg_bn_drop) model name
       --backend               (default nn)          backend, nn or cudnn
