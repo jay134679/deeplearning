@@ -39,9 +39,11 @@ function load_provider(size)
    provider = nil
    if data_file ~= nil then
       DEBUG('loading data from file...')
+      print('loading data from file...')
       provider = torch.load(data_filename)
    else
       DEBUG('downloading data...')
+      print('downloading data...')
       provider = Provider(size)
       provider:normalize()
       provider.trainData.data = provider.trainData.data:float()
