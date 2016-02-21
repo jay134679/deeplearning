@@ -1,7 +1,14 @@
--- Code written by jakezhao.
+-- Homework 2: provider.lua
+-- Maya Rotmensch (mer567) and Alex Pine (akp258)
+-- Original code written by jakezhao.
+-- Data loading and parsing code.
+
+-- TODO make a tiny data set for code testing
+-- TODO parse unlabeled data
 
 require 'nn'
 require 'image'
+require 'torch'
 require 'xlua'
 
 torch.setdefaulttensortype('torch.FloatTensor')
@@ -58,8 +65,8 @@ function Provider:__init(full)
      labels = torch.Tensor(),
      size = function() return trsize end
   }
-  self.trainData.data, self.trainData.labels = parseDataLabel(raw_train.data,
-                                                   trsize, channel, height, width)
+  self.trainData.data, self.trainData.labels = parseDataLabel(
+     raw_train.data, trsize, channel, height, width)
   local trainData = self.trainData
   self.valData = {
      data = torch.Tensor(),

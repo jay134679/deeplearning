@@ -2,83 +2,80 @@
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 -- Trains, validates, and tests data for homework 2.
 
---require 'lapp'
 require 'torch'
+local c = require 'trepl.colorize'
+
+-- Locally defined files
+require 'augment_data'
+require 'exp_setup'
+require 'provider'
 
 function parse_cmdline()
    local opt = lapp[[
-      --results_dir             (default "results")   directory to save results
-      --debug_log_filename      (default "debug.log")  filename of debugging output
-      --exp_name                (default "")          name of the current experiment. optional.
-      -b,--batchSize            (default 64)          batch size
-      -r,--learningRate         (default 1)        learning rate
-      --learningRateDecay       (default 1e-7)      learning rate decay
-      --weightDecay             (default 0.0005)      weightDecay
-      -m,--momentum             (default 0.9)         momentum
-      --epoch_step              (default 25)          epoch step
-      --model                  (default vgg_bn_drop)     model name
-      --max_epoc                (default 300)           maximum number of iterations
-      --backend                 (default nn)            backend
+      --size                  (default "tiny")      size of data to use: tiny, small, full.
+      --exp_name              (default "")          name of the current experiment. optional.
+      --results_dir           (default "results")   directory to save results
+      --debug_log_filename    (default "debug.log")  filename of debugging output
+      -b,--batchSize          (default 64)          batch size
+      -r,--learningRate       (default 1)        learning rate
+      --learningRateDecay     (default 1e-7)      learning rate decay
+      --weightDecay           (default 0.0005)      weightDecay
+      -m,--momentum           (default 0.9)         momentum
+      --epoch_step            (default 25)          epoch step
+      --max_epoch             (default 300)           maximum number of iterations
+      --model                 (default vgg_bn_drop)     model name
+      --backend               (default nn)            backend, nn or cudnn
    ]]
    return opt
 end
 
--- creates the 'results_dir' directory if it doesn't exist, and creates the current
--- experiment's directory, and returns its name.
-function prepare_environment(results_dir, exp_name)
-   paths.mkdir(results_dir)
-   local full_exp_name = ''
-   if exp_name ~= '' then
-      full_exp_name = exp_name
+function load_provider()
+   print(c.blue '==>' ..' loading data')
+   -- TODO delete provider.t7 this file once you add unlabeled data to provider.lua.
+   data_file = io.open('provider.t7', 'r')
+   if data_file ~= nil then
+      DEBUG('loading data from file...')
+      provider = torch.load('provider.t7')
    else
-      full_exp_name = 'exp'
+      DEBUG('downloading data...')
+      provider = Provider()
+      provider:normalize()
+      -- TODO does the 'float' call have to be changed in cuda mode?
+      -- Jake leaves them as float in his cuda code...
+      provider.trainData.data = provider.trainData.data:float()
+      provider.valData.data = provider.valData.data:float()
+      torch.save('provider.t7', provider)
    end
-   full_exp_name = full_exp_name..'_'..os.date("%m%d%H%M%S")
-   local experiment_dir = paths.concat(results_dir, full_exp_name)
-   print('Saving results at '..experiment_dir)
-   paths.mkdir(experiment_dir)
-   return experiment_dir
+   return provider
 end
 
--- Creates the global debug log file, DEBUG_FILE.
--- LOG(message) can be called once this has been called
-function CREATE_DEBUG_LOG(debug_log_filename, experiment_dir)
-   -- set file for io.write calls. 'a' is for 'append' mode.
-   local filepath = paths.concat(experiment_dir, debug_log_filename)
-   -- global variable
-   DEBUG_FILE = assert(io.open(filepath, 'a'))
-end
 
--- Uses io.write to log the given message on a single line.
--- Assumes CREATE_DEBUG_LOG has already been called.
-function LOG(message)
-   if DEBUG_FILE ~= nil then
-      DEBUG_FILE:write(message..'\n')
-   else
-      print('[ERROR] DEBUG_FILE global var is nil')
+-- NOTE: The main model MUST be the third thing. Validation asssumes it is.
+function load_model(model_name)
+   local model = nn.Sequential()
+   add_batch_flip(model) -- TODO 
+   model:add(nn.Copy('torch.FloatTensor','torch.CudaTensor'):cuda())
+   -- NOTE: This layer must be the third one!
+   model:add(dofile('models/'..model_name..'.lua'):cuda())
+   model:get(2).updateGradInput = function(input) return end
+
+   -- TODO will we ever have access to cudnn?
+   if opt.backend == 'cudnn' then
+      require 'cudnn'
+      cudnn.convert(model:get(3), cudnn)
    end
+   DEBUG('loading model...')
+   DEBUG(model)
+   return model
 end
 
--- saves input options to options.log
-function save_input_options(opt, experiment_dir)
-   local options_str = 'Options\n'
-   for k,v in pairs(opt) do
-      options_str = options_str..k..': '..v..'\n'
-   end
-   local options_filename = paths.concat(experiment_dir, 'options.log')
-   LOG('Writing options to '..options_filename)
-   local options_file = assert(io.open(options_filename, 'a'))
-   options_file:write(options_str)
-   options_file:close()
-end
-
--- Use LOG('blah') to write debug output
--- save files in experiment_dir
 function main()
    opt = parse_cmdline()
-   experiment_dir = prepare_environment(opt.results_dir, opt.exp_name)
-   CREATE_DEBUG_LOG(opt.debug_log_filename, experiment_dir)
-   save_input_options(opt, experiment_dir)
+   experiment_dir = setup_experiment(opt)
+   -- DEBUG function now callable
+   provider = load_provider(opt.size)
+   model = load_model(opt.model)
+   train_validate_max_epochs(opt, provider, model, experiment_dir)
    print('Experiment complete.')
 end
 
