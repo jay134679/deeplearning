@@ -37,7 +37,7 @@ end
 local function save_input_options(opt, experiment_dir)
    local options_str = 'Options\n'
    for k,v in pairs(opt) do
-      options_str = options_str..k..': '..v..'\n'
+      options_str = options_str..k..': '..tostring(v)..'\n'
    end
    local options_filename = paths.concat(experiment_dir, 'options.log')
    DEBUG('Writing options to '..options_filename)
