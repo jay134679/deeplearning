@@ -26,7 +26,7 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
    local tic = torch.tic()  -- starts timer
    
    for t,v in ipairs(indices) do
-      xlua.progress(t, #indices)
+      xlua.progress(t, #indices) -- TODO this only runs once?
       
       local inputs = trainData.data:index(1, v) -- TODO huh?
       targets:copy(trainData.labels:index(1, v))
@@ -44,7 +44,7 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
 	 
 	 return f, gradParameters
       end
-      optim.sgd(feval, parameters, optimState) -- TODO it's dying here
+      optim.sgd(feval, parameters, optimState)
    end
    
    confusion:updateValids()
