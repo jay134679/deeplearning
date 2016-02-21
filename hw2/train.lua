@@ -123,10 +123,11 @@ end
 -- NOTE: The model passed here should just be the layer of the custom model we
 -- created.
 function maybe_save_model(model, epoch, experiment_dir)
-   -- save model every 5 epochs
-   if epoch % 5 == 0 then
+   -- Since it takes several minutes to save a model file, only save every 50 epochs.
+   if epoch % 50 == 0 then
       local filename = paths.concat(experiment_dir, 'model.net')
       DEBUG('==> saving model to '..filename)
+      print('==> saving model to '..filename)
       torch.save(filename, model)
    end
 end

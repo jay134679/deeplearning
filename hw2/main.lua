@@ -51,7 +51,8 @@ function load_provider(size)
    return provider
 end
 
-
+-- returns the constructed sequential model, and the index of the sub-model from
+-- the models/ directory.
 function load_model(model_name, use_cuda)
    DEBUG('loading model: '..model_name)
    DEBUG('use_cuda: '..tostring(use_cuda))
@@ -75,7 +76,7 @@ function load_model(model_name, use_cuda)
 	 cudnn.convert(custom_model_layer_index, cudnn)
       end
    else
-      model:add(dofile('models/'..model_name..'.lua')) -- TODO float()?
+      model:add(dofile('models/'..model_name..'.lua'))
       custom_model_layer_index = 2
    end   
    DEBUG(model)
