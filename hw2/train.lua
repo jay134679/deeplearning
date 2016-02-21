@@ -56,7 +56,6 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
    return train_acc
 end
 
-
 function evaluate_model(opt, validateData, model, experiment_dir)
    model:evaluate()
 
@@ -64,9 +63,9 @@ function evaluate_model(opt, validateData, model, experiment_dir)
    
    print(c.blue '==>'.." evaling")
    local bs = 25 -- TODO huh?
-   for i = 1,provider.valData.data:size(1),bs do
-      local outputs = model:forward(provider.valData.data:narrow(1, i, bs))
-      confusion:batchAdd(outputs, provider.valData.labels:narrow(1, i, bs))
+   for i = 1,validateData.data:size(1),bs do
+      local outputs = model:forward(validateData.data:narrow(1, i, bs))
+      confusion:batchAdd(outputs, validateData.labels:narrow(1, i, bs))
    end
 
    confusion:updateValids()
@@ -158,7 +157,7 @@ function train_validate_max_epochs(opt, provider, model, experiment_dir)
       
       local train_acc = train_one_epoch(opt, provider.trainData, optimState,
 					model, criterion)
-      local val_confusion = evaluate_model(opt, validateData, model)
+      local val_confusion = evaluate_model(opt, provider.valData, model)
       
       log_validation_stats(valLogger, model, epoch, train_acc, val_confusion,
 			   optimState, experiment_dir)

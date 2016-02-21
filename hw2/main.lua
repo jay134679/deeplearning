@@ -36,6 +36,7 @@ function load_provider(size)
    -- TODO delete provider.t7 this file once you add unlabeled data to provider.lua.
    data_filename = 'provider.'..size..'.t7'
    data_file = io.open(data_filename, 'r')
+   provider = nil
    if data_file ~= nil then
       DEBUG('loading data from file...')
       provider = torch.load(data_filename)
