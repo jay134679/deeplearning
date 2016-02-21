@@ -77,7 +77,7 @@ end
 
 function log_validation_stats(valLogger, model, epoch, train_acc, val_confusion,
 			      optimState, experiment_dir)
-   local val_acc = confusion.totalValid * 100
+   local val_acc = val_confusion.totalValid * 100
    valLogger:add{train_acc, val_acc}
    valLogger:style{'-','-'}
    valLogger:plot()
@@ -118,10 +118,10 @@ end
 
 -- NOTE: The main model MUST be the third layer.
 function maybe_save_model(model, epoch, experiment_dir)
-   -- save model every 50 epochs
-   if epoch % 5 == 0 then -- TODO this assumes epoch step of 25
+   -- save model every 5 epochs
+   if epoch % 5 == 0 then
       local filename = paths.concat(experiment_dir, 'model.net')
-      print('==> saving model to '..filename)
+      DEBUG('==> saving model to '..filename)
       torch.save(filename, model:get(3))
    end
 end
