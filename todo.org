@@ -154,8 +154,9 @@ worked
 
 
 * TODO Homework 4
-** TODO figure out scheduling
+** figure out scheduling
 https://d1b10bmlvqabco.cloudfront.net/attach/iicl1y199833v4/ie3efsaul1h3xo/iksnmh1oi53c/dsga1008a2.pdf
+https://docs.google.com/document/d/1U03sfWe_0SqD40P51h19OMK_l3Nx2phmH0Fs0ilX2bs/edit
 ** Math problem 1
 ** Math problem 2
 paper
@@ -164,9 +165,7 @@ http://arxiv.org/pdf/1502.03167v3.pdf
 just calculus
 *** part 2
 I think this is in the paper
-** Unsupervised/supervised learning
-https://docs.google.com/document/d/1U03sfWe_0SqD40P51h19OMK_l3Nx2phmH0Fs0ilX2bs/edit
-*** papers to read
+** papers to read
 **** Cropping patches, doing clustering / auto-encoding as pre-training.
 http://arxiv.org/abs/1412.6597 
 **** Surrogate classes: exemplar CNN
@@ -181,5 +180,18 @@ http://arxiv.org/pdf/1506.02351.pdf
 **** AN ANALYSIS OF UNSUPERVISED PRE-TRAINING IN LIGHT OF RECENT ADVANCES
 http://arxiv.org/pdf/1412.6597v4.pdf
 ** prepare experimental environment
-** run experiments
+** do full evaluation without unlabeled data
+** Write result.lua
+** enhance data augmentation
+** Unlabeled data experiments
 ** Visualization
+*** Visualizing filters and augmentations
+**** Visualize filters in first layer
+**** A sample of the 'augmentations' organized in a grid
+huh??
+*** t-SNE
+**** Read t-SNE tutorial
+**** cluster testing images using features from your model
+** Create writeup
+** Submit kaggle code
+** bundle code and writeup for submission
