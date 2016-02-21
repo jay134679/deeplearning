@@ -2,7 +2,6 @@
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 -- Trains, validates, and tests data for homework 2.
 
-require 'cunn'
 require 'torch'
 local c = require 'trepl.colorize'
 
@@ -24,9 +23,10 @@ function parse_cmdline()
       --weightDecay           (default 0.0005)      weightDecay
       -m,--momentum           (default 0.9)         momentum
       --epoch_step            (default 25)          epoch step
-      --max_epoch             (default 300)           maximum number of iterations
-      --model                 (default vgg_bn_drop)     model name
-      --backend               (default nn)            backend, nn or cudnn
+      --max_epoch             (default 300)         maximum number of iterations
+      --model                 (default vgg_bn_drop) model name
+      --backend               (default nn)          backend, nn or cudnn
+      --use_cuda              (default true)        whether to use cuda or not
    ]]
    return opt
 end
@@ -44,8 +44,6 @@ function load_provider(size)
       DEBUG('downloading data...')
       provider = Provider(size)
       provider:normalize()
-      -- TODO does the 'float' call have to be changed in cuda mode?
-      -- Jake leaves them as float in his cuda code...
       provider.trainData.data = provider.trainData.data:float()
       provider.valData.data = provider.valData.data:float()
       torch.save(data_filename, provider)
@@ -54,23 +52,34 @@ function load_provider(size)
 end
 
 
--- NOTE: The main model MUST be the third thing. Validation asssumes it is.
-function load_model(model_name)
+function load_model(model_name, use_cuda)
+   DEBUG('loading model: '..model_name)
+   DEBUG('use_cuda: '..tostring(use_cuda))
+   
    local model = nn.Sequential()
-   add_batch_flip(model) -- TODO confirm this works
-   model:add(nn.Copy('torch.FloatTensor','torch.CudaTensor'):cuda())
-   -- NOTE: This layer must be the third one!
-   model:add(dofile('models/'..model_name..'.lua'):cuda()) -- TODO vgg model OOMs here
-   model:get(2).updateGradInput = function(input) return end
+   -- 1st layer: data augmentation
+   add_batch_flip(model)
 
-   -- TODO will we ever have access to cudnn?
-   if opt.backend == 'cudnn' then
-      require 'cudnn'
-      cudnn.convert(model:get(3), cudnn)
-   end
-   DEBUG('loading model...')
+   custom_model_layer_index = nil
+
+   if use_cuda then
+      require 'cunn'
+      model:add(nn.Copy('torch.FloatTensor','torch.CudaTensor'):cuda())
+      model:add(dofile('models/'..model_name..'.lua'):cuda())
+      model:get(2).updateGradInput = function(input) return end
+      custom_model_layer_index = 3
+
+      -- TODO will we ever have access to cudnn?
+      if opt.backend == 'cudnn' then
+	 require 'cudnn'
+	 cudnn.convert(custom_model_layer_index, cudnn)
+      end
+   else
+      model:add(dofile('models/'..model_name..'.lua')) -- TODO float()?
+      custom_model_layer_index = 2
+   end   
    DEBUG(model)
-   return model
+   return model, custom_model_layer_index
 end
 
 function main()
@@ -78,8 +87,8 @@ function main()
    experiment_dir = setup_experiment(opt)
    -- DEBUG function now callable
    provider = load_provider(opt.size)
-   model = load_model(opt.model)
-   train_validate_max_epochs(opt, provider, model, experiment_dir)
+   model, custom_model_layer_index = load_model(opt.model, opt.use_cuda)
+   train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
    print('Experiment complete.')
 end
 

@@ -14,8 +14,13 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
    model:training()
 
    local confusion = optim.ConfusionMatrix(10)
-   
-   local targets = torch.CudaTensor(opt.batchSize)
+
+   local targets = nil
+   if opt.use_cuda then
+      targets = torch.CudaTensor(opt.batchSize)
+   else
+      targets = torch.FloatTensor(opt.batchSize) -- TODO is this right?
+   end
    -- TODO huh?
    local indices = torch.randperm(trainData.data:size(1)):long():split(opt.batchSize)
    -- remove last element so that all the batches have equal size
@@ -79,7 +84,7 @@ function log_validation_stats(valLogger, model, epoch, train_acc, val_confusion,
    local val_acc = val_confusion.totalValid * 100
    valLogger:add{train_acc, val_acc}
    valLogger:style{'-','-'}
-   valLogger:plot()
+   valLogger:plot() -- TODO this should save an eps file, but it doesn't.
    
    local base64im
    do
@@ -115,13 +120,14 @@ function log_validation_stats(valLogger, model, epoch, train_acc, val_confusion,
    file:close()
 end
 
--- NOTE: The main model MUST be the third layer.
+-- NOTE: The model passed here should just be the layer of the custom model we
+-- created.
 function maybe_save_model(model, epoch, experiment_dir)
    -- save model every 5 epochs
    if epoch % 5 == 0 then
       local filename = paths.concat(experiment_dir, 'model.net')
       DEBUG('==> saving model to '..filename)
-      torch.save(filename, model:get(3))
+      torch.save(filename, model)
    end
 end
 
@@ -130,13 +136,17 @@ end
 -- This returns the percentage of samples that were correctly
 -- classified on the validation set and the average number of
 -- milliseconds per sample required to train the model.
-function train_validate_max_epochs(opt, provider, model, experiment_dir)
+function train_validate_max_epochs(opt, provider, model,
+				   custom_model_layer_index, experiment_dir)
    local valLogger = optim.Logger(paths.concat(experiment_dir, 'val.log'))
    valLogger:setNames{'% mean class accuracy (train set)', '% mean class accuracy (val set)'}
    valLogger.showPlot = false
 
    print(c.blue'==>' ..' setting criterion')
-   local criterion = nn.CrossEntropyCriterion():cuda()
+   local criterion = nn.CrossEntropyCriterion()
+   if opt.use_cuda then
+      criterion = criterion:cuda()
+   end
 
    print(c.blue'==>' ..' configuring optimizer')   
    local optimState = {
@@ -162,6 +172,6 @@ function train_validate_max_epochs(opt, provider, model, experiment_dir)
       log_validation_stats(valLogger, model, epoch, train_acc, val_confusion,
 			   optimState, experiment_dir)
       -- TODO save model if performs better? Jake doesn't...
-      maybe_save_model(model, epoch, experiment_dir)
+      maybe_save_model(model:get(custom_model_layer_index), epoch, experiment_dir)
    end
 end
