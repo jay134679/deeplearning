@@ -57,9 +57,10 @@ function setup_experiment(opt)
    return experiment_dir
 end
 
--- Uses io.write to log the given message on a single line.
+-- Uses io.write to log the given message on a single line of the debug file.
 -- Assumes CREATE_DEBUG_LOG has already been called.
 function DEBUG(message)
+   print(message)
    if DEBUG_FILE ~= nil then
       DEBUG_FILE:write(tostring(message)..'\n')
    else

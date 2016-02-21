@@ -15,6 +15,12 @@ function parse_cmdline()
    local opt = lapp[[
       --size                  (default "tiny")      size of data to use: tiny, small, full.
       --exp_name              (default "")          name of the current experiment. optional.
+      --epoch_step            (default 5)          reduce learning rate every x epochs. TODO jake had it at 25. 5 is arbitrary.
+      --max_epoch             (default 30)         maximum number of iterations. TODO jake had it at 300. I estimate 30 will take a day to complete.
+      --model_save_freq       (default 5)          save the model every x epochs. TODO
+      --model                 (default vgg_bn_drop) model name
+      --backend               (default nn)          backend, nn or cudnn
+      --use_cuda              (default true)        whether to use cuda or not
       --results_dir           (default "results")   directory to save results
       --debug_log_filename    (default "debug.log")  filename of debugging output
       -b,--batchSize          (default 64)          batch size
@@ -22,11 +28,6 @@ function parse_cmdline()
       --learningRateDecay     (default 1e-7)      learning rate decay
       --weightDecay           (default 0.0005)      weightDecay
       -m,--momentum           (default 0.9)         momentum
-      --epoch_step            (default 25)          reduce learning rate every this many epochs
-      --max_epoch             (default 300)         maximum number of iterations
-      --model                 (default vgg_bn_drop) model name
-      --backend               (default nn)          backend, nn or cudnn
-      --use_cuda              (default true)        whether to use cuda or not
    ]]
    return opt
 end
@@ -39,11 +40,9 @@ function load_provider(size)
    provider = nil
    if data_file ~= nil then
       DEBUG('loading data from file...')
-      print('loading data from file...')
       provider = torch.load(data_filename)
    else
       DEBUG('downloading data...')
-      print('downloading data...')
       provider = Provider(size)
       provider:normalize()
       provider.trainData.data = provider.trainData.data:float()

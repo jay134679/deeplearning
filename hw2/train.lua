@@ -31,7 +31,7 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
    local tic = torch.tic()  -- starts timer
    
    for t,v in ipairs(indices) do
-      xlua.progress(t, #indices) -- TODO this only runs once?
+      xlua.progress(t, #indices)
       
       local inputs = trainData.data:index(1, v) -- TODO huh?
       targets:copy(trainData.labels:index(1, v))
@@ -74,7 +74,7 @@ function evaluate_model(opt, validateData, model, experiment_dir)
    end
 
    confusion:updateValids()
-   DEBUG('val accuracy: '..confusion.totalValid * 100)
+   DEBUG(('Valdiation accuracy: '..c.cyan'%.2f %%'):format(confusion.totalValid * 100))   
    return confusion
 end
 
@@ -122,12 +122,12 @@ end
 
 -- NOTE: The model passed here should just be the layer of the custom model we
 -- created.
-function maybe_save_model(model, epoch, experiment_dir)
-   -- Since it takes several minutes to save a model file, only save every 50 epochs.
-   if epoch % 50 == 0 then
+-- Since it takes several minutes to save a model file, only save every
+-- model_save_freq epochs.
+function maybe_save_model(model, epoch, model_save_freq, experiment_dir)
+   if epoch % model_save_freq == 0 then
       local filename = paths.concat(experiment_dir, 'model.net')
       DEBUG('==> saving model to '..filename)
-      print('==> saving model to '..filename)
       torch.save(filename, model)
    end
 end
@@ -160,7 +160,6 @@ function train_validate_max_epochs(opt, provider, model,
    for epoch = 1,opt.max_epoch do
       local epoch_debug_str = "==> online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']'
       DEBUG(epoch_debug_str)
-      print(epoch_debug_str)
       -- drop learning rate every "epoch_step" epochs
       if epoch % opt.epoch_step == 0 then
 	 optimState.learningRate = optimState.learningRate/2
@@ -173,6 +172,6 @@ function train_validate_max_epochs(opt, provider, model,
       log_validation_stats(valLogger, model, epoch, train_acc, val_confusion,
 			   optimState, experiment_dir)
       -- TODO save model if performs better? Jake doesn't...
-      maybe_save_model(model:get(custom_model_layer_index), epoch, experiment_dir)
+      maybe_save_model(model:get(custom_model_layer_index), epoch, opt.model_save_freq, experiment_dir)
    end
 end
