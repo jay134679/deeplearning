@@ -16,10 +16,10 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
    local confusion = optim.ConfusionMatrix(10)
 
    local targets = nil
-   if opt.use_cuda then
-      targets = torch.CudaTensor(opt.batchSize)
-   else
+   if opt.no_cuda then
       targets = torch.FloatTensor(opt.batchSize) -- TODO is this right?
+   else
+      targets = torch.CudaTensor(opt.batchSize)
    end
    -- TODO huh?
    local indices = torch.randperm(trainData.data:size(1)):long():split(opt.batchSize)
@@ -145,7 +145,7 @@ function train_validate_max_epochs(opt, provider, model,
 
    print(c.blue'==>' ..' setting criterion')
    local criterion = nn.CrossEntropyCriterion()
-   if opt.use_cuda then
+   if not opt.no_cuda then
       criterion = criterion:cuda()
    end
 
