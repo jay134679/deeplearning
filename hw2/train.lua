@@ -124,8 +124,10 @@ end
 -- created.
 -- Since it takes several minutes to save a model file, only save every
 -- model_save_freq epochs.
-function maybe_save_model(model, epoch, model_save_freq, experiment_dir)
-   if epoch % model_save_freq == 0 then
+function maybe_save_model(model, epoch, model_save_freq, experiment_dir, val_percent_acc_last, val_percent_acc)
+   epsilon = 0.001
+   -- save model ever model_save_freq epochs, but only in validation accuracy improves.  
+   if (epoch % model_save_freq == 0) and (val_percent_acc - val_percent_acc_last > epsilon) then
       local filename = paths.concat(experiment_dir, 'model.net')
       DEBUG('==> saving model to '..filename)
       torch.save(filename, model)
@@ -157,6 +159,7 @@ function train_validate_max_epochs(opt, provider, model,
       learningRateDecay = opt.learningRateDecay,
    }
 
+   local val_percent_acc_last = 0
    for epoch = 1,opt.max_epoch do
       local epoch_debug_str = "==> online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']'
       DEBUG(epoch_debug_str)
@@ -167,11 +170,15 @@ function train_validate_max_epochs(opt, provider, model,
       
       local train_acc = train_one_epoch(opt, provider.trainData, optimState,
 					model, criterion)
-      local val_confusion = evaluate_model(opt, provider.valData, model)
+      val_confusion = evaluate_model(opt, provider.valData, model) -- TO DO
       
       log_validation_stats(valLogger, model, epoch, train_acc, val_confusion,
 			   optimState, experiment_dir)
       -- TODO save model if performs better? Jake doesn't...
-      maybe_save_model(model:get(custom_model_layer_index), epoch, opt.model_save_freq, experiment_dir)
+      
+      val_percent_acc = val_confusion.totalValid*100
+      print ("LAST  "..val_percent_acc_last.."  NEW  ".. val_percent_acc)
+      maybe_save_model(model:get(custom_model_layer_index), epoch, opt.model_save_freq, experiment_dir, val_percent_acc_last, val_percent_acc)
+      val_percent_acc_last = val_percent_acc
    end
 end
