@@ -3,7 +3,6 @@
 -- Trains, validates, and tests data for homework 2.
 
 require 'torch'
-local c = require 'trepl.colorize'
 
 -- Locally defined files
 require 'augment_data'
@@ -33,7 +32,7 @@ function parse_cmdline()
 end
 
 function load_provider(size)
-   print(c.blue '==>' ..' loading data')
+   print('==> loading data')
    -- TODO delete provider.t7 this file once you add unlabeled data to provider.lua.
    data_filename = 'provider.'..size..'.t7'
    data_file = io.open(data_filename, 'r')
@@ -43,7 +42,7 @@ function load_provider(size)
       provider = torch.load(data_filename)
    else
       DEBUG('downloading data...')
-      provider = Provider(size)
+      provider = Provider(size) -- TODO this is a GLOBAL!
       provider:normalize()
       provider.trainData.data = provider.trainData.data:float()
       provider.valData.data = provider.valData.data:float()

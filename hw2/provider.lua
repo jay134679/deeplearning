@@ -16,7 +16,7 @@ torch.setdefaulttensortype('torch.FloatTensor')
 
 -- parse STL-10 data from table into examples and labels tensors
 function parseDataLabel(data, numSamples, numChannels, height, width)
-   DEBUG('num samples '..numSamples)
+   print('num samples '..numSamples)
    local examples = torch.ByteTensor(numSamples, numChannels, height, width)
    local labels = torch.ByteTensor(numSamples)
    local idx = 1
@@ -40,7 +40,7 @@ end
 -- Parse unlabeled data into a byte tensor.
 -- TODO seems weird that you have to do data[1][i].
 function parseUnlabeledData(data, numSamples, numChannels, height, width)
-   DEBUG('num samples '..numSamples)
+   print('num samples '..numSamples)
    local examples = torch.ByteTensor(numSamples, numChannels, height, width)
    for i = 1, #data[1] do
       if i > numSamples then
@@ -82,19 +82,19 @@ function Provider:__init(size) -- TODO use this arg
    local extrasize = 0
    
    if size == 'full' then
-      DEBUG('==> using regular, full training data')
+      print('==> using regular, full training data')
       trsize = 4000
       valsize = 1000
       testsize = 8000
       extrasize = 100000
    elseif size == 'small' then
-      DEBUG('==> using reduced training data, for fast experiments')
+      print('==> using reduced training data, for fast experiments')
       trsize = 1000
       valsize = 250
       testsize = 2000
       extrasize = 20000
    elseif size == 'tiny' then
-      DEBUG('==> using tiny training data, for code testing')
+      print('==> using tiny training data, for code testing')
       trsize = 100
       valsize = 25
       testsize = 200
