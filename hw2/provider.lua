@@ -14,27 +14,41 @@ require 'xlua'
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
--- parse STL-10 data from table into Tensor
-function parseDataLabel(d, numSamples, numChannels, height, width)
-   local t = torch.ByteTensor(numSamples, numChannels, height, width)
-   local l = torch.ByteTensor(numSamples)
+-- parse STL-10 data from table into examples and labels tensors
+function parseDataLabel(data, numSamples, numChannels, height, width)
+   DEBUG('num samples '..numSamples)
+   local examples = torch.ByteTensor(numSamples, numChannels, height, width)
+   local labels = torch.ByteTensor(numSamples)
    local idx = 1
-   print('num samples '..numSamples)
    done = false
-   for i = 1, #d do
-      local this_d = d[i]
+   for i = 1, #data do
+      local this_d = data[i]
       for j = 1, #this_d do
 	 if idx > numSamples then
 	    done = true
 	    break
 	 end
-	 t[idx]:copy(this_d[j])
-	 l[idx] = i
+	 examples[idx]:copy(this_d[j])
+	 labels[idx] = i
 	 idx = idx + 1
       end
       if done then break end
    end
-   return t, l
+   return examples, labels
+end
+
+-- Parse unlabeled data into a byte tensor.
+-- TODO seems weird that you have to do data[1][i].
+function parseUnlabeledData(data, numSamples, numChannels, height, width)
+   DEBUG('num samples '..numSamples)
+   local examples = torch.ByteTensor(numSamples, numChannels, height, width)
+   for i = 1, #data[1] do
+      if i > numSamples then
+	 break
+      end
+      examples[i]:copy(data[1][i])
+   end
+   return examples
 end
 
 
@@ -60,27 +74,31 @@ function Provider:__init(size) -- TODO use this arg
    local raw_train = torch.load('stl-10/train.t7b')
    local raw_val = torch.load('stl-10/val.t7b')
    local raw_test = torch.load('stl-10/test.t7b')
+   local raw_extra = torch.load('stl-10/extra.t7b')
    
    local trsize = 0
    local valsize = 0
    local testsize = 0
+   local extrasize = 0
+   
    if size == 'full' then
       DEBUG('==> using regular, full training data')
       trsize = 4000
       valsize = 1000
       testsize = 8000
-      -- the size of these files is known ahead of time, double check.
---TODO how big is test?      assert(testsize == TODO)
+      extrasize = 100000
    elseif size == 'small' then
-      print '==> using reduced training data, for fast experiments'
+      DEBUG('==> using reduced training data, for fast experiments')
       trsize = 1000
       valsize = 250
       testsize = 2000
+      extrasize = 20000
    elseif size == 'tiny' then
-      print '==> using tiny training data, for code testing'
+      DEBUG('==> using tiny training data, for code testing')
       trsize = 100
       valsize = 25
       testsize = 200
+      extrasize = 2000
    end
    if trsize == 0 then
       error("ERROR: unregconized value for 'size' string: "..size..". Choose 'full', 'small', or 'tiny'.")
@@ -124,7 +142,14 @@ function Provider:__init(size) -- TODO use this arg
    self.testData.data, self.testData.labels = parseDataLabel(
       raw_test.data, testsize, channel, height, width)
    
-   -- TODO extra
+   -- extra
+   print('unlabeled data')
+   self.extraData = {
+      data = torch.Tensor(),
+      size = function() return extrasize end
+   }
+   self.extraData.data = parseUnlabeledData(
+      raw_extra.data, extrasize, channel, height, width)
    
    -- convert from ByteTensor to Float
    self.trainData.data = self.trainData.data:float()
@@ -133,7 +158,7 @@ function Provider:__init(size) -- TODO use this arg
    self.valData.labels = self.valData.labels:float()
    self.testData.data = self.testData.data:float()
    self.testData.labels = self.testData.labels:float()
-   -- TODO extra
+   self.extraData.data = self.extraData.data:float()
    collectgarbage()
 end
 
@@ -144,9 +169,8 @@ function Provider:normalize()
   local trainData = self.trainData
   local valData = self.valData
   local testData = self.testData
-  
-  -- TODO extra
-  
+  local extraData = self.extraData
+
   print '<trainer> preprocessing data (color space + normalization)'
   collectgarbage()
 
@@ -210,5 +234,7 @@ function Provider:normalize()
   -- normalize v globally:
   testData.data:select(2,3):add(-mean_v)
   testData.data:select(2,3):div(std_v)
+
+-- TODO normalize unlabeled data with the training data?
   
 end
