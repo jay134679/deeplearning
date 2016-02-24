@@ -30,7 +30,7 @@
 require 'nn'
 require 'optim'
 require 'torch'
-
+require 'cunn'
 -- our custom code. This must be in the same directory.
 require 'provider'
 
@@ -90,6 +90,7 @@ function create_predictions_string(model, test_data)
 
    for i = 1,test_data:size() do
       -- get new sample
+-- TODO you have to convert the data to a cuda tensor or something. do whatever it does in train.lua
       local input = test_data.data[i]:double()
       local prediction_tensor = model:forward(input)
       local prediction = max_index(prediction_tensor:storage())
@@ -129,7 +130,7 @@ function main()
    end
    
    local provider = Provider(options.size)
-   local model = torch.load(options.model_filename)
+   local model = torch.load(options.model_filename):cuda()
    local predictions_str = create_predictions_string(model, provider.testData)
    write_predictions_csv(predictions_str, options.output_filename)
 end
