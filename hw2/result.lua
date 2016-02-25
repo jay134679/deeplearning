@@ -1,6 +1,8 @@
 -- Homework 2: result.lua
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 
+-- TODO THIS DOES NOT WORK!!! SO SLOW! test in an interactive shell doofus.
+-- TODO get this to work on CUDA. it's too slow.
 
 -- TODO SET DEFAULT VALUE FOR --model_filename so they can run without flags!
 
@@ -83,20 +85,23 @@ function create_predictions_string(model, test_data)
       classes[i] = tostring(i)
    end
 
-   local targets = torch.CudaTensor(opt.batchSize)
    -- This matrix records the current confusion across classes
    local confusion = optim.ConfusionMatrix(classes)
-   -- make predictions
+
    local predictions_str = "Id,Prediction\n"
-   for i = 1,test_data:size() do
-      -- get new sample
-      local input = test_data.data[i]:float()
-      targets:copy(input)
-      local prediction_tensor = model:forward(targets)
-      local prediction = max_index(prediction_tensor:storage())
-      confusion:add(prediction, test_data.labels[i])
-      predictions_str = predictions_str .. i .. "," .. prediction .. "\n"
+
+   model:float() -- TODO without this it fails, but it's so slow.
+   print('==> evaluating')
+   local batch_size = 25
+   for i = 1,test_data.data:size(1),batch_size do
+      local outputs = model:forward(test_data.data:narrow(1, i, batch_size))
+      confusion:batchAdd(outputs, test_data.labels:narrow(1, i, batch_size))
+      for j = 1,batch_size do
+         prediction = max_index(outputs[j]:storage())
+         predictions_str = predictions_str .. j .. "," .. prediction .. "\n"
+      end
    end
+   confusion:updateValids()
    print(confusion)
    return predictions_str
 end
@@ -131,7 +136,7 @@ function main()
    
    local provider = Provider(options.size)
    provider:normalize()
-   local model = torch.load(options.model_filename):cuda()
+   local model = torch.load(options.model_filename):cuda() -- TODO is this needed/desirable?
    local predictions_str = create_predictions_string(model, provider.testData)
    write_predictions_csv(predictions_str, options.output_filename)
 end
