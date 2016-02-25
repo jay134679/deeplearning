@@ -1,9 +1,10 @@
 -- Homework 2: result.lua
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 
--- TODO update these comments
 
---
+-- TODO SET DEFAULT VALUE FOR --model_filename so they can run without flags!
+
+
 -- This script loads a trained STL-10 model, and makes predictions on
 -- the test data in 'stl-10/test.t7b'
 -- The user must specify the model file name via the 'model_filename' flag.
@@ -25,8 +26,6 @@
 --
 -- th result.lua -size small -model_filename results/mymodel.net -output_filename results/myresults.log
 
--- TODO SET DEFAULT VALUE FOR --model_filename so they can run without flags!
-
 require 'nn'
 require 'optim'
 require 'torch'
@@ -47,7 +46,7 @@ function parse_commandline()
    cmd:option('-save', 'results', 'subdirectory to save/log experiments in')
    cmd:option("-output_filename", "predictions.csv",
 	      "the name of the CSV file that will contain the model's predictions. Required")
-   cmd:option("-model_filename", "TODOTODOTODOTODO",
+   cmd:option("-model_filename", "",
 	      "the name of the file that contains the trained model. Required!")
    cmd:option("-num_data_to_test", -1, "The number of data points to test. If -1, defaults to the size of the test data.")
    cmd:text()
@@ -83,16 +82,17 @@ function create_predictions_string(model, test_data)
    for i = 1,100 do
       classes[i] = tostring(i)
    end
+
+   local targets = torch.CudaTensor(opt.batchSize)
    -- This matrix records the current confusion across classes
    local confusion = optim.ConfusionMatrix(classes)
    -- make predictions
    local predictions_str = "Id,Prediction\n"
-
    for i = 1,test_data:size() do
       -- get new sample
--- TODO you have to convert the data to a cuda tensor or something. do whatever it does in train.lua
-      local input = test_data.data[i]:double()
-      local prediction_tensor = model:forward(input)
+      local input = test_data.data[i]:float()
+      targets:copy(input)
+      local prediction_tensor = model:forward(targets)
       local prediction = max_index(prediction_tensor:storage())
       confusion:add(prediction, test_data.labels[i])
       predictions_str = predictions_str .. i .. "," .. prediction .. "\n"
@@ -130,6 +130,7 @@ function main()
    end
    
    local provider = Provider(options.size)
+   provider:normalize()
    local model = torch.load(options.model_filename):cuda()
    local predictions_str = create_predictions_string(model, provider.testData)
    write_predictions_csv(predictions_str, options.output_filename)
