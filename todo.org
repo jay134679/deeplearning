@@ -184,9 +184,10 @@ http://arxiv.org/pdf/1511.03719.pdf
 http://arxiv.org/pdf/1506.02351.pdf
 **** AN ANALYSIS OF UNSUPERVISED PRE-TRAINING IN LIGHT OF RECENT ADVANCES
 http://arxiv.org/pdf/1412.6597v4.pdf
-** prepare experimental environment
-** do full evaluation without unlabeled data
-** parse unlabeled data
+** DONE prepare experimental environment
+** RUNNING do full evaluation without unlabeled data
+** DONE parse unlabeled data
+** Try to get cudnn to work
 ** Write result.lua
 ** improve data augmentation
 ** Unlabeled data experiments
