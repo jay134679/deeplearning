@@ -185,11 +185,15 @@ http://arxiv.org/pdf/1506.02351.pdf
 **** AN ANALYSIS OF UNSUPERVISED PRE-TRAINING IN LIGHT OF RECENT ADVANCES
 http://arxiv.org/pdf/1412.6597v4.pdf
 ** DONE prepare experimental environment
-** RUNNING do full evaluation without unlabeled data
+** DONE do full evaluation without unlabeled data
 ** DONE parse unlabeled data
-** Try to get cudnn to work
-** Write result.lua
+** DONE do full evaluation without unlabeled data
+** DONE parse unlabeled data
+** DONE Write result.lua
 ** improve data augmentation
+** TODO refactor provider.lua to load data separately.
+There isn't enough memory to load all the data into memory on AWS.
+** Try to get cudnn to work
 ** Unlabeled data experiments
 ** Visualization
 *** Visualizing filters and augmentations

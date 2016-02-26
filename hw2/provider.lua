@@ -3,9 +3,7 @@
 -- Original code written by jakezhao.
 -- Data loading and parsing code.
 
--- TODO parse test data
--- TODO make a tiny data set for code testing
--- TODO parse unlabeled data
+-- TODO allow data to be loaded separately. All full data OOMs on AWS.
 
 require 'nn'
 require 'image'
@@ -54,7 +52,7 @@ end
 
 local Provider = torch.class 'Provider'
 
-function Provider:__init(size) -- TODO use this arg
+function Provider:__init(size)
   -- download dataset
    if not paths.dirp('stl-10') then
       os.execute('mkdir stl-10')

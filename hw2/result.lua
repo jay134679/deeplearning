@@ -54,49 +54,35 @@ function parse_commandline()
    return options
 end
 
--- Given a LongStorage, this finds the index with the greatest value.
--- Used to find the digit prediction given the results of nn.forward().
-function max_index(row_storage)
-   if #row_storage == 0 then
-      return nil
-   end
-   local max_index = 1
-   for i = 2,#row_storage do
-      if row_storage[i] > row_storage[max_index] then
-	 max_index = i
-      end
-   end
-   return max_index
-end
-
-
 -- Given the trained model and normalized test data, this evaluates the model
 -- on each value of the test data. It writes its predictions to a
 -- comma-delimited string, one prediction per line. It also prints the
 -- confusion matrix.
-function create_predictions_string(model, test_data)
-   print("==> running model on test data with " .. test_data:size() .. " entries.")
+function create_predictions_string(model, testData)
+   print("==> running model on test data with " .. testData:size() .. " entries.")
    model:evaluate()  -- Putting the model in evalate mode, in case it's needed.
-   -- classes
-   local classes = {}
-   for i = 1,100 do
-      classes[i] = tostring(i)
-   end
 
-   local targets = torch.CudaTensor(opt.batchSize)
+   testData.data = testData.data:cuda()
+
+   local classes = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
    -- This matrix records the current confusion across classes
    local confusion = optim.ConfusionMatrix(classes)
-   -- make predictions
+
    local predictions_str = "Id,Prediction\n"
-   for i = 1,test_data:size() do
-      -- get new sample
-      local input = test_data.data[i]:float()
-      targets:copy(input)
-      local prediction_tensor = model:forward(targets)
-      local prediction = max_index(prediction_tensor:storage())
-      confusion:add(prediction, test_data.labels[i])
-      predictions_str = predictions_str .. i .. "," .. prediction .. "\n"
+
+   print('==> evaluating')
+   local batch_size = 25
+   for i = 1,testData.data:size(1),batch_size do
+      local outputs = model:forward(testData.data:narrow(1, i, batch_size))
+      confusion:batchAdd(outputs, testData.labels:narrow(1, i, batch_size))
+      for j = 1,batch_size do
+         -- This call gets the index of the largest value in the outputs[j] list.
+         local value, index = outputs[j]:topk(1, 1, true)
+         prediction = assert(index[1]) -- index is a Tensor, this makes it a number
+         predictions_str = predictions_str .. j .. "," .. tostring(prediction) .. "\n"
+      end
    end
+   confusion:updateValids()
    print(confusion)
    return predictions_str
 end
@@ -111,6 +97,16 @@ function write_predictions_csv(predictions_str, output_filename)
    print('==> file saved')
 end
 
+
+function run(size, model_filename, output_filename)
+   -- NOTE: This are global on purpose, so this can be tested in the REPL.
+   provider = Provider(size)
+   provider:normalize()
+
+   model = torch.load(model_filename):cuda()
+   local predictions_str = create_predictions_string(model, provider.testData)
+   write_predictions_csv(predictions_str, output_filename)
+end
 
 -- This is the function that runs the script. It checks the command line flags
 -- and executes the program.
@@ -129,11 +125,7 @@ function main()
       exit()
    end
    
-   local provider = Provider(options.size)
-   provider:normalize()
-   local model = torch.load(options.model_filename):cuda()
-   local predictions_str = create_predictions_string(model, provider.testData)
-   write_predictions_csv(predictions_str, options.output_filename)
+   run(options.size, options.model_filename, options.output_filename)
 end
 
 
