@@ -1,8 +1,6 @@
 -- Homework 2: result.lua
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 
--- TODO THIS DOES NOT WORK!!! SO SLOW! test in an interactive shell doofus.
--- TODO get this to work on CUDA. it's too slow.
 
 -- TODO SET DEFAULT VALUE FOR --model_filename so they can run without flags!
 
@@ -56,49 +54,32 @@ function parse_commandline()
    return options
 end
 
--- Given a LongStorage, this finds the index with the greatest value.
--- Used to find the digit prediction given the results of nn.forward().
-function max_index(row_storage)
-   if #row_storage == 0 then
-      return nil
-   end
-   local max_index = 1
-   for i = 2,#row_storage do
-      if row_storage[i] > row_storage[max_index] then
-	 max_index = i
-      end
-   end
-   return max_index
-end
-
-
 -- Given the trained model and normalized test data, this evaluates the model
 -- on each value of the test data. It writes its predictions to a
 -- comma-delimited string, one prediction per line. It also prints the
 -- confusion matrix.
-function create_predictions_string(model, test_data)
-   print("==> running model on test data with " .. test_data:size() .. " entries.")
+function create_predictions_string(model, testData)
+   print("==> running model on test data with " .. testData:size() .. " entries.")
    model:evaluate()  -- Putting the model in evalate mode, in case it's needed.
-   -- classes
-   local classes = {}
-   for i = 1,100 do
-      classes[i] = tostring(i)
-   end
 
+   testData.data = testData.data:cuda()
+
+   local classes = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
    -- This matrix records the current confusion across classes
    local confusion = optim.ConfusionMatrix(classes)
 
    local predictions_str = "Id,Prediction\n"
 
-   model:float() -- TODO without this it fails, but it's so slow.
    print('==> evaluating')
    local batch_size = 25
-   for i = 1,test_data.data:size(1),batch_size do
-      local outputs = model:forward(test_data.data:narrow(1, i, batch_size))
-      confusion:batchAdd(outputs, test_data.labels:narrow(1, i, batch_size))
+   for i = 1,testData.data:size(1),batch_size do
+      local outputs = model:forward(testData.data:narrow(1, i, batch_size))
+      confusion:batchAdd(outputs, testData.labels:narrow(1, i, batch_size))
       for j = 1,batch_size do
-         prediction = max_index(outputs[j]:storage())
-         predictions_str = predictions_str .. j .. "," .. prediction .. "\n"
+         -- This call gets the index of the largest value in the outputs[j] list.
+         local value, index = outputs[j]:topk(1, 1, true)
+         prediction = assert(index[1]) -- index is a Tensor, this makes it a number
+         predictions_str = predictions_str .. j .. "," .. tostring(prediction) .. "\n"
       end
    end
    confusion:updateValids()
@@ -117,6 +98,16 @@ function write_predictions_csv(predictions_str, output_filename)
 end
 
 
+function run(size, model_filename, output_filename)
+   -- NOTE: This are global on purpose, so this can be tested in the REPL.
+   provider = Provider(size)
+   provider:normalize()
+
+   model = torch.load(model_filename):cuda()
+   local predictions_str = create_predictions_string(model, provider.testData)
+   write_predictions_csv(predictions_str, output_filename)
+end
+
 -- This is the function that runs the script. It checks the command line flags
 -- and executes the program.
 function main()
@@ -134,11 +125,7 @@ function main()
       exit()
    end
    
-   local provider = Provider(options.size)
-   provider:normalize()
-   local model = torch.load(options.model_filename):cuda() -- TODO is this needed/desirable?
-   local predictions_str = create_predictions_string(model, provider.testData)
-   write_predictions_csv(predictions_str, options.output_filename)
+   run(options.size, options.model_filename, options.output_filename)
 end
 
 
