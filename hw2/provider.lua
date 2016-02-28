@@ -10,11 +10,34 @@ require 'image'
 require 'torch'
 require 'xlua'
 
+require 'exp_setup'
+
 torch.setdefaulttensortype('torch.FloatTensor')
+
+-- Public function to load the Provider object. If its been saved to a file
+-- already, it uses that.
+function load_provider(size, providerType)
+   DEBUG('==> loading data')
+   local data_filename = 'provider.'..size..'.'..providerType..'.t7'
+   local data_file = io.open(data_filename, 'r')
+   local provider = nil
+   if data_file ~= nil then
+      DEBUG('loading data from file...')
+      provider = torch.load(data_filename)
+   else
+      DEBUG('downloading data...')
+      provider = Provider(size, providerType)
+      provider:normalize()
+      torch.save(data_filename, provider)
+   end
+   return provider
+end
+
+---- Private functions ----
 
 -- parse STL-10 data from table into examples and labels tensors
 function parseDataLabel(data, numSamples, numChannels, height, width)
-   print('num samples '..numSamples)
+   DEBUG('num samples '..numSamples)
    local examples = torch.ByteTensor(numSamples, numChannels, height, width)
    local labels = torch.ByteTensor(numSamples)
    local idx = 1
@@ -38,7 +61,7 @@ end
 -- Parse unlabeled data into a byte tensor.
 -- TODO seems weird that you have to do data[1][i].
 function parseUnlabeledData(data, numSamples, numChannels, height, width)
-   print('num samples '..numSamples)
+   DEBUG('num samples '..numSamples)
    local examples = torch.ByteTensor(numSamples, numChannels, height, width)
    for i = 1, #data[1] do
       if i > numSamples then
@@ -52,7 +75,11 @@ end
 
 local Provider = torch.class 'Provider'
 
-function Provider:__init(size)
+-- size is either 'tiny', 'small', or 'full'.
+-- provider must be 'training' or 'evaluate'.
+-- 'training' loads train, val, and extra.
+-- 'evaluate' loads train (for its mean and std) and test.
+function Provider:__init(size, providerType)
   -- download dataset
    if not paths.dirp('stl-10') then
       os.execute('mkdir stl-10')
@@ -68,11 +95,23 @@ function Provider:__init(size)
       os.execute('wget ' .. www.test .. '; '.. 'mv test.t7b stl-10/test.t7b')
       os.execute('wget ' .. www.extra .. '; '.. 'mv extra.t7b stl-10/extra.t7b')
    end
-   
+
+   self.providerType = providerType
+   -- Always load train
    local raw_train = torch.load('stl-10/train.t7b')
-   local raw_val = torch.load('stl-10/val.t7b')
-   local raw_test = torch.load('stl-10/test.t7b')
-   local raw_extra = torch.load('stl-10/extra.t7b')
+   -- Load other sets conditionally
+   local raw_val = nil
+   local raw_test = nil
+   local raw_extra = nil
+   
+   if (providerType == 'training') then
+     raw_val = torch.load('stl-10/val.t7b')
+     raw_extra = torch.load('stl-10/extra.t7b')
+   elseif (providerType == 'evaluate') then
+     raw_test = torch.load('stl-10/test.t7b')
+   else
+     error("[ERROR] unregconized value for 'providerType': "..providerType..". Choose 'training' or 'evaluate'")
+   end
    
    local trsize = 0
    local valsize = 0
@@ -80,26 +119,26 @@ function Provider:__init(size)
    local extrasize = 0
    
    if size == 'full' then
-      print('==> using regular, full training data')
+      DEBUG('==> using regular, full training data')
       trsize = 4000
       valsize = 1000
       testsize = 8000
       extrasize = 100000
    elseif size == 'small' then
-      print('==> using reduced training data, for fast experiments')
+      DEBUG('==> using reduced training data, for fast experiments')
       trsize = 1000
       valsize = 250
       testsize = 2000
       extrasize = 20000
    elseif size == 'tiny' then
-      print('==> using tiny training data, for code testing')
+      DEBUG('==> using tiny training data, for code testing')
       trsize = 100
       valsize = 25
       testsize = 200
       extrasize = 2000
    end
    if trsize == 0 then
-      error("ERROR: unregconized value for 'size' string: "..size..". Choose 'full', 'small', or 'tiny'.")
+      error("[ERROR] unregconized value for 'size' string: "..size..". Choose 'full', 'small', or 'tiny'.")
    end
 
    local channel = 3
@@ -109,7 +148,7 @@ function Provider:__init(size)
    -- load and parse dataset
 
    -- train
-   print('loading training data')
+   DEBUG('loading training data')
    self.trainData = {
       data = torch.Tensor(),
       labels = torch.Tensor(),
@@ -117,46 +156,51 @@ function Provider:__init(size)
    }
    self.trainData.data, self.trainData.labels = parseDataLabel(
       raw_train.data, trsize, channel, height, width)
-   local trainData = self.trainData
-   
-   -- validation
-   print('loading validation data')
-   self.valData = {
-      data = torch.Tensor(),
-      labels = torch.Tensor(),
-      size = function() return valsize end
-   }
-   self.valData.data, self.valData.labels = parseDataLabel(
-      raw_val.data, valsize, channel, height, width)
-   local valData = self.valData
-   
-   -- test
-   print('loading test data')
-   self.testData = {
-      data = torch.Tensor(),
-      labels = torch.Tensor(),
-      size = function() return testsize end
-   }
-   self.testData.data, self.testData.labels = parseDataLabel(
-      raw_test.data, testsize, channel, height, width)
-   
-   -- extra
-   print('unlabeled data')
-   self.extraData = {
-      data = torch.Tensor(),
-      size = function() return extrasize end
-   }
-   self.extraData.data = parseUnlabeledData(
-      raw_extra.data, extrasize, channel, height, width)
-   
-   -- convert from ByteTensor to Float
    self.trainData.data = self.trainData.data:float()
    self.trainData.labels = self.trainData.labels:float()
-   self.valData.data = self.valData.data:float()
-   self.valData.labels = self.valData.labels:float()
-   self.testData.data = self.testData.data:float()
-   self.testData.labels = self.testData.labels:float()
-   self.extraData.data = self.extraData.data:float()
+   
+   -- validation
+
+   if (providerType == 'training') then
+     DEBUG('loading validation data')
+     self.valData = {
+        data = torch.Tensor(),
+        labels = torch.Tensor(),
+        size = function() return valsize end
+     }
+     self.valData.data, self.valData.labels = parseDataLabel(
+        raw_val.data, valsize, channel, height, width)	
+
+     -- extra
+     DEBUG('unlabeled data')
+     self.extraData = {
+        data = torch.Tensor(),
+        size = function() return extrasize end
+     }
+     self.extraData.data = parseUnlabeledData(
+        raw_extra.data, extrasize, channel, height, width)
+
+     -- convert from ByteTensor to Float
+     self.valData.data = self.valData.data:float()
+     self.valData.labels = self.valData.labels:float()
+     self.extraData.data = self.extraData.data:float()
+   end
+   
+   -- test
+   if (providerType == 'evaluate') then
+     DEBUG('loading test data')
+     self.testData = {
+        data = torch.Tensor(),
+        labels = torch.Tensor(),
+        size = function() return testsize end
+     }
+     self.testData.data, self.testData.labels = parseDataLabel(
+        raw_test.data, testsize, channel, height, width)
+      -- convert from ByteTensor to Float
+     self.testData.data = self.testData.data:float()
+     self.testData.labels = self.testData.labels:float()
+   end
+   
    collectgarbage()
 end
 
@@ -164,14 +208,9 @@ function Provider:normalize()
   ----------------------------------------------------------------------
   -- preprocess/normalize train/val sets
   --
-  local trainData = self.trainData
-  local valData = self.valData
-  local testData = self.testData
-  local extraData = self.extraData
-
-  print '<trainer> preprocessing data (color space + normalization)'
+  DEBUG('<trainer> preprocessing data (color space + normalization)')
   collectgarbage()
-
+  local trainData = self.trainData
   -- preprocess trainSet
   local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
   for i = 1,trainData:size() do
@@ -199,40 +238,50 @@ function Provider:normalize()
   trainData.mean_v = mean_v
   trainData.std_v = std_v
 
-  -- preprocess valSet
-  for i = 1,valData:size() do
-    xlua.progress(i, valData:size())
-     -- rgb -> yuv
-     local rgb = valData.data[i]
-     local yuv = image.rgb2yuv(rgb)
-     -- normalize y locally:
-     yuv[{1}] = normalization(yuv[{{1}}])
-     valData.data[i] = yuv
-  end
-  -- normalize u globally:
-  valData.data:select(2,2):add(-mean_u)
-  valData.data:select(2,2):div(std_u)
-  -- normalize v globally:
-  valData.data:select(2,3):add(-mean_v)
-  valData.data:select(2,3):div(std_v)
+  -- preprocess either validate or test, depending on the providerType
+  local providerType = self.providerType
 
-  -- preprocess testSet
-  for i = 1,testData:size() do
-    xlua.progress(i, testData:size())
-     -- rgb -> yuv
-     local rgb = testData.data[i]
-     local yuv = image.rgb2yuv(rgb)
-     -- normalize y locally:
-     yuv[{1}] = normalization(yuv[{{1}}])
-     testData.data[i] = yuv
-  end
-  -- normalize u globally:
-  testData.data:select(2,2):add(-mean_u)
-  testData.data:select(2,2):div(std_u)
-  -- normalize v globally:
-  testData.data:select(2,3):add(-mean_v)
-  testData.data:select(2,3):div(std_v)
+  if providerType == 'training' then
+    local valData = self.valData
 
--- TODO normalize unlabeled data with the training data?
-  
+    -- preprocess valSet
+    for i = 1,valData:size() do
+      xlua.progress(i, valData:size())
+       -- rgb -> yuv
+       local rgb = valData.data[i]
+       local yuv = image.rgb2yuv(rgb)
+       -- normalize y locally:
+       yuv[{1}] = normalization(yuv[{{1}}])
+       valData.data[i] = yuv
+    end
+    -- normalize u globally:
+    valData.data:select(2,2):add(-mean_u)
+    valData.data:select(2,2):div(std_u)
+    -- normalize v globally:
+    valData.data:select(2,3):add(-mean_v)
+    valData.data:select(2,3):div(std_v)
+
+    local extraData = self.extraData
+    -- TODO normalize unlabeled data with the training data?
+
+  elseif providerType == 'evaluate' then
+    local testData = self.testData
+
+    -- preprocess testSet
+    for i = 1,testData:size() do
+      xlua.progress(i, testData:size())
+       -- rgb -> yuv
+       local rgb = testData.data[i]
+       local yuv = image.rgb2yuv(rgb)
+       -- normalize y locally:
+       yuv[{1}] = normalization(yuv[{{1}}])
+       testData.data[i] = yuv
+    end
+    -- normalize u globally:
+    testData.data:select(2,2):add(-mean_u)
+    testData.data:select(2,2):div(std_u)
+    -- normalize v globally:
+    testData.data:select(2,3):add(-mean_v)
+    testData.data:select(2,3):div(std_v)
+  end
 end

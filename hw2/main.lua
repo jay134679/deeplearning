@@ -31,26 +31,6 @@ function parse_cmdline()
    return opt
 end
 
-function load_provider(size)
-   print('==> loading data')
-   -- TODO delete provider.t7 this file once you add unlabeled data to provider.lua.
-   data_filename = 'provider.'..size..'.t7'
-   data_file = io.open(data_filename, 'r')
-   provider = nil
-   if data_file ~= nil then
-      DEBUG('loading data from file...')
-      provider = torch.load(data_filename)
-   else
-      DEBUG('downloading data...')
-      provider = Provider(size) -- TODO this is a GLOBAL!
-      provider:normalize()
-      provider.trainData.data = provider.trainData.data:float()
-      provider.valData.data = provider.valData.data:float()
-      torch.save(data_filename, provider)
-   end
-   return provider
-end
-
 -- returns the constructed sequential model, and the index of the sub-model from
 -- the models/ directory.
 function load_model(model_name, no_cuda)
@@ -60,9 +40,8 @@ function load_model(model_name, no_cuda)
    local model = nn.Sequential()
    -- 1st layer: data augmentation
    add_batch_flip(model)
-
+ 
    custom_model_layer_index = nil
-
    if no_cuda then
       model:add(dofile('models/'..model_name..'.lua'))
       custom_model_layer_index = 2
@@ -86,7 +65,7 @@ function main()
    opt = parse_cmdline()
    experiment_dir = setup_experiment(opt)
    -- DEBUG function now callable
-   provider = load_provider(opt.size)
+   provider = load_provider(opt.size, 'training')
    model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
    train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
    print('Experiment complete.')

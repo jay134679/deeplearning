@@ -2,9 +2,6 @@
 -- Maya Rotmensch (mer567) and Alex Pine (akp258)
 
 
--- TODO SET DEFAULT VALUE FOR --model_filename so they can run without flags!
-
-
 -- This script loads a trained STL-10 model, and makes predictions on
 -- the test data in 'stl-10/test.t7b'
 -- The user must specify the model file name via the 'model_filename' flag.
@@ -26,6 +23,8 @@
 --
 -- th result.lua -size small -model_filename results/mymodel.net -output_filename results/myresults.log
 
+-- TODO give --model_filename the name of our final model as a defualt.
+
 require 'nn'
 require 'optim'
 require 'torch'
@@ -42,13 +41,13 @@ function parse_commandline()
    cmd:text("Homework 2 Results")
    cmd:text()
    cmd:text("Options:")
-   cmd:option('-size', 'full', 'how many samples do we load from test data: tiny | small | full. Required.')
-   cmd:option('-save', 'results', 'subdirectory to save/log experiments in')
-   cmd:option("-output_filename", "predictions.csv",
+   cmd:option('--size', 'full', 'how many samples do we load from test data: tiny | small | full. Required.')
+   cmd:option('--save', 'results', 'subdirectory to save/log experiments in')
+   cmd:option("--output_filename", "predictions.csv",
 	      "the name of the CSV file that will contain the model's predictions. Required")
-   cmd:option("-model_filename", "",
+   cmd:option("--model_filename", "",
 	      "the name of the file that contains the trained model. Required!")
-   cmd:option("-num_data_to_test", -1, "The number of data points to test. If -1, defaults to the size of the test data.")
+   cmd:option("--num_data_to_test", -1, "The number of data points to test. If -1, defaults to the size of the test data.")
    cmd:text()
    local options = cmd:parse(arg or {})   
    return options
@@ -62,8 +61,6 @@ function create_predictions_string(model, testData)
    print("==> running model on test data with " .. testData:size() .. " entries.")
    model:evaluate()  -- Putting the model in evalate mode, in case it's needed.
 
-   testData.data = testData.data:cuda()
-
    local classes = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
    -- This matrix records the current confusion across classes
    local confusion = optim.ConfusionMatrix(classes)
@@ -72,8 +69,10 @@ function create_predictions_string(model, testData)
 
    print('==> evaluating')
    local batch_size = 25
-   for i = 1,testData.data:size(1),batch_size do
-      local outputs = model:forward(testData.data:narrow(1, i, batch_size))
+   for i = 1, testData.data:size(1), batch_size do
+      xlua.progress(i+batch_size, testData.data:size(1))
+
+      local outputs = model:forward(testData.data:narrow(1, i, batch_size):cuda())
       confusion:batchAdd(outputs, testData.labels:narrow(1, i, batch_size))
       for j = 1,batch_size do
          -- This call gets the index of the largest value in the outputs[j] list.
@@ -100,8 +99,7 @@ end
 
 function run(size, model_filename, output_filename)
    -- NOTE: This are global on purpose, so this can be tested in the REPL.
-   provider = Provider(size)
-   provider:normalize()
+   provider = load_provider(size, 'evaluate')
 
    model = torch.load(model_filename):cuda()
    local predictions_str = create_predictions_string(model, provider.testData)
