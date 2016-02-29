@@ -45,7 +45,7 @@ function load_provider(size, providerType, augmented)
       provider = Provider(size, providerType)
       if augmented then
          print(c.blue '==>' ..' augmenting data')
-         provider.trainData.data = augmented_all(provider.trainData.data)
+         provider.trainData.data,provider.trainData.labels = augmented_all(provider.trainData.data,provider.trainData.labels)
       end
       provider:normalize()
       torch.save(data_filename, provider)

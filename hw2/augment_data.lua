@@ -48,6 +48,16 @@ function stack_tensors(tensor_A , tensor_B) -- first dimension
     return combined_tensor
 end
 
+function stack_labels(tensor_A,tensor_B)
+    combined_tensor = torch.Tensor(tensor_A:size(1)+tensor_B:size(1))
+    combined_tensor[{{1,tensor_A:size(1)}}] = tensor_A
+    combined_tensor[{{tensor_A:size(1)+1,combined_tensor:size(1)}}] = tensor_B
+    return combined_tensor
+end 
+
+
+
+
 function do_something_redux(src_image)
     -- randomly transforms a single image
 
@@ -110,7 +120,7 @@ function do_something_redux(src_image)
 end
 
 
-function augmented_all(data_input)
+function augmented_all(data_input, label_input)
     local new_data= data_input:clone()
 
     -- transforms all 
@@ -118,7 +128,8 @@ function augmented_all(data_input)
         new_data[i] = do_something_redux(new_data[i])
     end
     local stacked_data = stack_tensors(data_input , new_data)
-    return stacked_data
+    local stacked_labels = stack_labels(label_input,label_input)
+    return stacked_data, stacked_labels
 end
 
 
