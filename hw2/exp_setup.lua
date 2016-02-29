@@ -57,13 +57,11 @@ function setup_experiment(opt)
    return experiment_dir
 end
 
--- Uses io.write to log the given message on a single line of the debug file.
--- Assumes CREATE_DEBUG_LOG has already been called.
+-- Prints the given message, and writes it to the debug file if it's been
+-- defined by CREATE_DEBUG_LOG().
 function DEBUG(message)
    print(message)
    if DEBUG_FILE ~= nil then
       DEBUG_FILE:write(tostring(message)..'\n')
-   else
-      print('[ERROR] DEBUG_FILE global var is nil')
    end
 end

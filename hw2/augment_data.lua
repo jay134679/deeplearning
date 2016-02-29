@@ -54,18 +54,24 @@ function do_something_redux(src_image)
     local new = src_image:clone()
 
     -- rotate
-    
     if torch.uniform() > 0.5 then
+        angle_rad = 0.35*torch.uniform()
+        --calculate new crop margin
+        width = (src_image:size(2))/(math.cos(angle_rad)+math.sin(angle_rad))
+        crop_margin = (new:size(2)-width)/2
+        --choose roation direction
         if  torch.uniform() > 0.5 then
-            new = image.rotate(new, 0.35*torch.uniform()) -- up to a 20 degree angle
+           new = image.rotate(new, angle_rad) -- up to a 20 degree angle    
         else
-             new = image.rotate(new, -0.35*torch.uniform()) -- up to a 20 degree angle
-        end
-    
+           new = image.rotate(new, -angle_rad) -- up to a 20 degree angle   
+    end
+        new = image.crop(new,crop_margin,crop_margin,new:size(2)-crop_margin,new:size(3)-crop_margin)
+        new = image.scale(new, src_image:size(2), src_image:size(3))
     end
     
     -- change the hue
-    if torch.uniform() > 0.5 then
+    
+   --[[ if torch.uniform() > 0.5 then
         new = image.rgb2hsv(new)
         if torch.uniform() > 0.5 then
             new[1] = new[1]-0.1
@@ -73,18 +79,22 @@ function do_something_redux(src_image)
             new[1] = new[1]+0.1
         end
         new = image.hsv2rgb(new)
-    end
+    end]]
    
-
+ 
     -- tanslate
     
     if torch.uniform() > 0.5 then
-        new = image.translate(new, 12, 12)
+        translate_by  = 12
+        new = image.translate(new, translate_by, 0)
+        new = image.crop(new,translate_by,0,new:size(2),new:size(3))
+        new = image.scale(new, src_image:size(2), src_image:size(3))
+
     end
     
+
     -- crop
 
- 
     if torch.uniform() > 0.5 then
         local cropping_pix = 12
         local cropped = image.crop(new,cropping_pix,cropping_pix,new:size(2)-cropping_pix,new:size(3)-cropping_pix)
@@ -96,8 +106,6 @@ function do_something_redux(src_image)
         --mlp:add(nn.Padding(3,-cropping_pix))
         --new = mlp:forward(cropped)
     end
-    --print()
-    --print(src_image:size(1), new:size(1))
     return new
 end
 

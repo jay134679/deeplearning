@@ -7,7 +7,6 @@ require 'nn'
 require 'optim'
 require 'torch'
 require 'xlua'
-local c = require 'trepl.colorize'
 
 
 function train_one_epoch(opt, trainData, optimState, model, criterion)
@@ -54,27 +53,29 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
    
    confusion:updateValids()
    local time_secs = torch.toc(tic)
-   DEBUG(('Train accuracy: '..c.cyan'%.2f'..' %%\t time: %.2f s'):format(
+   DEBUG(('Train accuracy: %.2f'..' %%\t time: %.2f s'):format(
 	    confusion.totalValid * 100, time_secs))
    
    local train_acc = confusion.totalValid * 100
    return train_acc
 end
 
-function evaluate_model(opt, validateData, model, experiment_dir)
+function evaluate_model(validateData, model)
    model:evaluate()
 
    local confusion = optim.ConfusionMatrix(10)
    
-   print(c.blue '==>'.." evaling")
-   local bs = 25 -- TODO huh?
-   for i = 1,validateData.data:size(1),bs do
-      local outputs = model:forward(validateData.data:narrow(1, i, bs))
-      confusion:batchAdd(outputs, validateData.labels:narrow(1, i, bs))
+   print('==> evaluating')
+   -- Don't know why Jake adds the labels to the confusion matrix in batches of
+   -- 25, but sure, why not.
+   local batch_size = 25
+   for i = 1,validateData.data:size(1),batch_size do
+      local outputs = model:forward(validateData.data:narrow(1, i, batch_size))
+      confusion:batchAdd(outputs, validateData.labels:narrow(1, i, batch_size))
    end
 
    confusion:updateValids()
-   DEBUG(('Valdiation accuracy: '..c.cyan'%.2f %%'):format(confusion.totalValid * 100))   
+   DEBUG(('Valdiation accuracy: %.2f %%'):format(confusion.totalValid * 100))
    return confusion
 end
 
@@ -145,13 +146,13 @@ function train_validate_max_epochs(opt, provider, model,
    valLogger:setNames{'% mean class accuracy (train set)', '% mean class accuracy (val set)'}
    valLogger.showPlot = false
 
-   print(c.blue'==>' ..' setting criterion')
+   print('==> setting criterion')
    local criterion = nn.CrossEntropyCriterion()
    if not opt.no_cuda then
       criterion = criterion:cuda()
    end
 
-   print(c.blue'==>' ..' configuring optimizer')   
+   print('==> configuring optimizer')   
    local optimState = {
       learningRate = opt.learningRate,
       weightDecay = opt.weightDecay,
@@ -170,14 +171,14 @@ function train_validate_max_epochs(opt, provider, model,
       
       local train_acc = train_one_epoch(opt, provider.trainData, optimState,
 					model, criterion)
-      val_confusion = evaluate_model(opt, provider.valData, model) -- TO DO
+      val_confusion = evaluate_model(provider.valData, model) -- TO DO
       
       log_validation_stats(valLogger, model, epoch, train_acc, val_confusion,
 			   optimState, experiment_dir)
-      -- TODO save model if performs better? Jake doesn't...
       
       val_percent_acc = val_confusion.totalValid*100
       print ("LAST  "..val_percent_acc_last.."  NEW  ".. val_percent_acc)
+      -- TODO shouldn't this save only when it's the best model seen so far, not just the best one since we last checked?
       maybe_save_model(model:get(custom_model_layer_index), epoch, opt.model_save_freq, experiment_dir, val_percent_acc_last, val_percent_acc)
       val_percent_acc_last = val_percent_acc
    end
