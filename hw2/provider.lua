@@ -126,11 +126,12 @@ function Provider:__init(size, providerType)
    
    if (providerType == 'training') then
      raw_val = torch.load('stl-10/val.t7b')
+   elseif (providerType == 'unlabeled') then
      raw_extra = torch.load('stl-10/extra.t7b')
    elseif (providerType == 'evaluate') then
      raw_test = torch.load('stl-10/test.t7b')
    else
-     error("[ERROR] unregconized value for 'providerType': "..providerType..". Choose 'training' or 'evaluate'")
+     error("[ERROR] unregconized value for 'providerType': "..providerType..". Choose 'training', 'unlabeled' or 'evaluate'")
    end
    
    local trsize = 0
@@ -191,6 +192,7 @@ function Provider:__init(size, providerType)
      self.valData.data, self.valData.labels = parseDataLabel(
         raw_val.data, valsize, channel, height, width)	
 
+     --[[
      -- extra
      DEBUG('unlabeled data')
      self.extraData = {
@@ -199,13 +201,27 @@ function Provider:__init(size, providerType)
      }
      self.extraData.data = parseUnlabeledData(
         raw_extra.data, extrasize, channel, height, width)
+     ]]
 
      -- convert from ByteTensor to Float
      self.valData.data = self.valData.data:float()
      self.valData.labels = self.valData.labels:float()
-     self.extraData.data = self.extraData.data:float()
+     --self.extraData.data = self.extraData.data:float()
    end
    
+   if (providerType == 'unlabeled') then
+     -- extra
+      DEBUG('unlabeled data')
+      self.extraData = {
+         data = torch.Tensor(),
+         size = function() return extrasize end
+      }
+      self.extraData.data = parseUnlabeledData(
+        raw_extra.data, extrasize, channel, height, width)
+      self.extraData.data = self.extraData.data:float()
+
+   end
+
    -- test
    if (providerType == 'evaluate') then
      DEBUG('loading test data')

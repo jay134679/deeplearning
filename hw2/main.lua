@@ -105,7 +105,7 @@ function main()
    experiment_dir = setup_experiment(opt)
    -- DEBUG function now callable
    print(opt.augmented)
-   provider = load_provider(opt.size, 'training',opt.augmented)
+   provider = load_provider(opt.size, 'training', opt.augmented)
    model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
    train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
    print('Experiment complete.')
