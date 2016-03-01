@@ -16,11 +16,12 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
 
    local targets = nil
    if opt.no_cuda then
-      targets = torch.FloatTensor(opt.batchSize) -- TODO is this right?
+      targets = torch.FloatTensor(opt.batchSize)
    else
       targets = torch.CudaTensor(opt.batchSize)
    end
-   -- TODO huh?
+   -- creates a random permutation of numbers 1 though the size of the training data,
+   -- then splits them into batches.
    local indices = torch.randperm(trainData.data:size(1)):long():split(opt.batchSize)
    -- remove last element so that all the batches have equal size
    indices[#indices] = nil
@@ -31,8 +32,8 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
    
    for t,v in ipairs(indices) do
       xlua.progress(t, #indices)
-      
-      local inputs = trainData.data:index(1, v) -- TODO huh?
+
+      local inputs = trainData.data:index(1, v)
       targets:copy(trainData.labels:index(1, v))
       
       local feval = function(x)
@@ -183,3 +184,47 @@ function train_validate_max_epochs(opt, provider, model,
       val_percent_acc_last = val_percent_acc
    end
 end
+
+
+-- Construct a new one of these every mini batch, because you need a new unlabledMask for each one.
+local PseudoLabelCriterion, Criterion = torch.class('nn.PseudoLabelCriterion', 'nn.Criterion')
+
+-- crit: Criterion object
+-- unlabeledMask: a n x k tensor, where n is the mini-batch size, and k is the number of classes.
+--                It has zeros for labeled data, and ones for unlabled data.
+-- kAnneal: a scalar we use to weight the unlabled components of the gradient of the loss 
+function PseudoLabelCriterion:__init(crit, unlabeledMask, kAnneal)
+   Criterion.__init(self)
+   self.crit = crit
+   self.unlabeledMask = unlabeledMask
+   self.kAnneal = kAnneal
+end
+
+-- returns/sets the error
+-- NOTE: modifies target. we assume target has zeros for the unlabeled data.
+function PseudoLabelCriterion:updateOutput(input, target)
+   -- TODO squeeze gets rid of single dimensions. Do we still need to call this?
+   input = input:squeeze()
+   target = type(target) == 'number' and target or target:squeeze()
+   -- Multiplies the input by the unlabeled mask, and adds those values to the target. TODO test!!!
+   target:add(torch.mul(input, self.unlabeledMask))
+   self.crit:updateOutput(input)
+   self.output = self.crit.output
+   return self.output
+end
+
+-- returns/sets the gradient
+function PseudoLabelCriterion:updateGradInput(input, target)
+   local size = input:size()
+   input = input:squeeze()
+   target = type(target) == 'number' and target or target:squeeze()
+   self.crit:updateGradInput(input, target)
+   -- TODO figure out how to multiply each of the unlabeld gradient terms by kAnneal
+   return self.gradInput
+end
+
+return nn.PseudoLabelCriterion
+
+
+
+
