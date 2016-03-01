@@ -9,6 +9,8 @@ require 'nn'
 require 'image'
 require 'torch'
 require 'xlua'
+require 'augment_data'
+local c = require 'trepl.colorize'
 
 require 'exp_setup'
 
@@ -16,9 +18,23 @@ torch.setdefaulttensortype('torch.FloatTensor')
 
 -- Public function to load the Provider object. If its been saved to a file
 -- already, it uses that.
-function load_provider(size, providerType)
+function load_provider(size, providerType, augmented)
    DEBUG('==> loading data')
-   local data_filename = 'provider.'..size..'.'..providerType..'.t7'
+   local data_filename = ''
+   if providerType=='training' then
+      print("in")
+      if augmented then
+         print("in 2")
+         data_filename = 'provider.'..size..'.'..providerType..'.augmented.t7'
+      else
+         print("training not augmented")
+         data_filename = 'provider.'..size..'.'..providerType..'.t7'
+         print (data_filename)
+      end
+   else
+      data_filename = 'provider.'..size..'.'..providerType..'.t7'
+   end
+   print(data_filename) 
    local data_file = io.open(data_filename, 'r')
    local provider = nil
    if data_file ~= nil then
@@ -27,6 +43,10 @@ function load_provider(size, providerType)
    else
       DEBUG('downloading data...')
       provider = Provider(size, providerType)
+      if augmented then
+         print(c.blue '==>' ..' augmenting data')
+         provider.trainData.data,provider.trainData.labels = augmented_all(provider.trainData.data,provider.trainData.labels)
+      end
       provider:normalize()
       torch.save(data_filename, provider)
    end
@@ -106,11 +126,12 @@ function Provider:__init(size, providerType)
    
    if (providerType == 'training') then
      raw_val = torch.load('stl-10/val.t7b')
+   elseif (providerType == 'unlabeled') then
      raw_extra = torch.load('stl-10/extra.t7b')
    elseif (providerType == 'evaluate') then
      raw_test = torch.load('stl-10/test.t7b')
    else
-     error("[ERROR] unregconized value for 'providerType': "..providerType..". Choose 'training' or 'evaluate'")
+     error("[ERROR] unregconized value for 'providerType': "..providerType..". Choose 'training', 'unlabeled' or 'evaluate'")
    end
    
    local trsize = 0
@@ -171,6 +192,7 @@ function Provider:__init(size, providerType)
      self.valData.data, self.valData.labels = parseDataLabel(
         raw_val.data, valsize, channel, height, width)	
 
+     --[[
      -- extra
      DEBUG('unlabeled data')
      self.extraData = {
@@ -179,13 +201,27 @@ function Provider:__init(size, providerType)
      }
      self.extraData.data = parseUnlabeledData(
         raw_extra.data, extrasize, channel, height, width)
+     ]]
 
      -- convert from ByteTensor to Float
      self.valData.data = self.valData.data:float()
      self.valData.labels = self.valData.labels:float()
-     self.extraData.data = self.extraData.data:float()
+     --self.extraData.data = self.extraData.data:float()
    end
    
+   if (providerType == 'unlabeled') then
+     -- extra
+      DEBUG('unlabeled data')
+      self.extraData = {
+         data = torch.Tensor(),
+         size = function() return extrasize end
+      }
+      self.extraData.data = parseUnlabeledData(
+        raw_extra.data, extrasize, channel, height, width)
+      self.extraData.data = self.extraData.data:float()
+
+   end
+
    -- test
    if (providerType == 'evaluate') then
      DEBUG('loading test data')
