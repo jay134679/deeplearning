@@ -169,6 +169,7 @@ function train_validate_max_epochs(opt, provider, model,
 	 optimState.learningRate = optimState.learningRate/2
       end
       
+      print(provider.trainData)
       local train_acc = train_one_epoch(opt, provider.trainData, optimState,
 					model, criterion)
       val_confusion = evaluate_model(provider.valData, model) -- TO DO
