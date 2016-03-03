@@ -42,12 +42,14 @@ function load_provider(size, providerType, augmented)
       provider = torch.load(data_filename)
    else
       DEBUG('downloading data...')
-      provider = Provider(size, providerType)
+      provider = Provider(size, providerType, augmented)
       if augmented then
          print(c.blue '==>' ..' augmenting data')
          provider.trainData.data,provider.trainData.labels = augmented_all(provider.trainData.data,provider.trainData.labels)
       end
-      provider:normalize()
+      provider.trainData.data = provider.trainData.data:float()
+      provider.trainData.labels = provider.trainData.labels:float()
+      provider:normalize() -- TO DO 
       torch.save(data_filename, provider)
    end
    return provider
@@ -99,7 +101,7 @@ local Provider = torch.class 'Provider'
 -- provider must be 'training' or 'evaluate'.
 -- 'training' loads train, val, and extra.
 -- 'evaluate' loads train (for its mean and std) and test.
-function Provider:__init(size, providerType)
+function Provider:__init(size, providerType, augmented)
   -- download dataset
    if not paths.dirp('stl-10') then
       os.execute('mkdir stl-10')
@@ -173,7 +175,8 @@ function Provider:__init(size, providerType)
    self.trainData = {
       data = torch.Tensor(),
       labels = torch.Tensor(),
-      size = function() return trsize end
+      --size = function() return trsize end
+      size = function () if augmented then return 2*trsize else return trsize end end
    }
    self.trainData.data, self.trainData.labels = parseDataLabel(
       raw_train.data, trsize, channel, height, width)
@@ -247,9 +250,11 @@ function Provider:normalize()
   DEBUG('<trainer> preprocessing data (color space + normalization)')
   collectgarbage()
   local trainData = self.trainData
+  print(trainData:size())
   -- preprocess trainSet
   local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
   for i = 1,trainData:size() do
+     --print("counter_images"..i)
      xlua.progress(i, trainData:size())
      -- rgb -> yuv
      local rgb = trainData.data[i]

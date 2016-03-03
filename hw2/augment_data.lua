@@ -55,8 +55,25 @@ function stack_labels(tensor_A,tensor_B)
     return combined_tensor
 end 
 
+function augment_basic(src_image)
+    angle_rad = 0.3*torch.uniform()
+    width = (src_image:size(2))/(math.cos(angle_rad)+math.sin(angle_rad))
+    crop_margin = (src_image:size(2)-width)/2
+    if  torch.uniform() > 0.5 then
+       new = image.rotate(src_image, angle_rad) -- up to a 20 degree angle    
+    else
+       new = image.rotate(src_image, -angle_rad) -- up to a 20 degree angle   
+    end
+    new = image.crop(new,crop_margin,crop_margin,new:size(2)-crop_margin,new:size(3)-crop_margin)
+    new = image.scale(new, src_image:size(2), src_image:size(3))
+
+    return new
+end
 
 
+function dumb(src_image)
+    return src_image:clone()
+end
 
 function do_something_redux(src_image)
     -- randomly transforms a single image
@@ -125,7 +142,7 @@ function augmented_all(data_input, label_input)
 
     -- transforms all 
     for i=1,new_data:size(1) do
-        new_data[i] = do_something_redux(new_data[i])
+        new_data[i] =  do_something_redux(new_data[i])
     end
     local stacked_data = stack_tensors(data_input , new_data)
     local stacked_labels = stack_labels(label_input,label_input)
