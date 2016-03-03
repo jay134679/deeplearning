@@ -132,6 +132,10 @@ function maybe_save_model(model, epoch, model_save_freq, experiment_dir, val_per
       local filename = paths.concat(experiment_dir, 'model.net')
       DEBUG('==> saving model to '..filename)
       torch.save(filename, model)
+      return val_percent_acc
+
+   else
+       return val_percent_acc_last 
    end
 end
 
@@ -169,7 +173,7 @@ function train_validate_max_epochs(opt, provider, model,
 	 optimState.learningRate = optimState.learningRate/2
       end
       
-      print(provider.trainData)
+      --print(provider.trainData)
       local train_acc = train_one_epoch(opt, provider.trainData, optimState,
 					model, criterion)
       val_confusion = evaluate_model(provider.valData, model) -- TO DO
@@ -180,7 +184,7 @@ function train_validate_max_epochs(opt, provider, model,
       val_percent_acc = val_confusion.totalValid*100
       print ("LAST  "..val_percent_acc_last.."  NEW  ".. val_percent_acc)
       -- TODO shouldn't this save only when it's the best model seen so far, not just the best one since we last checked?
-      maybe_save_model(model:get(custom_model_layer_index), epoch, opt.model_save_freq, experiment_dir, val_percent_acc_last, val_percent_acc)
-      val_percent_acc_last = val_percent_acc
+      val_percent_acc_last = maybe_save_model(model:get(custom_model_layer_index), epoch, opt.model_save_freq, experiment_dir, val_percent_acc_last, val_percent_acc)
+      --val_percent_acc_last = val_percent_acc
    end
 end
