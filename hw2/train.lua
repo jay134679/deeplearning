@@ -23,8 +23,11 @@ function train_one_epoch(opt, trainData, optimState, model, criterion)
    -- creates a random permutation of numbers 1 though the size of the training data,
    -- then splits them into batches.
    local indices = torch.randperm(trainData.data:size(1)):long():split(opt.batchSize)
+   -- TODO I don't know why it's important for all batches to have the same size...
    -- remove last element so that all the batches have equal size
-   indices[#indices] = nil
+   if #indices > 1 then
+      indices[#indices] = nil
+   end
 
    local parameters, gradParameters = model:getParameters()
    
@@ -192,7 +195,7 @@ end
 
 -- TODO extra data 
 -- TODO unlabeled proportion
-function pseudo_train_one_epoch(opt, trainData, extraData, unlabeledProportion,
+function pseudo_train_one_epoch(opt, trainData, extraData, unlabeledProportion, pseudo_loss_weight,
 				optimState, model, criterion)
    model:training()
 
@@ -201,24 +204,27 @@ function pseudo_train_one_epoch(opt, trainData, extraData, unlabeledProportion,
 
    -- labeled data
    
+   DEBUG('labeled batch size: '..opt.batchSize)
    -- creates a random permutation of numbers 1 though the size of the training data,
-   -- then splits them into batches.
-   local labeled_batch_size = math.floor(opt.batchSize*(1-unlabeledProportion)) 
-   local labeled_indices = torch.randperm(trainData.data:size(1)):long():split(labeled_batch_size)
-      -- remove last element so that all the batches have equal size
-   labeled_indices[#labeled_indices] = nil -- TODO huh?
+   -- then splits them into batches.   
+   local labeled_indices = torch.randperm(trainData.data:size(1)):long():split(opt.batchSize)
+   -- remove last element so that all the batches have equal size
+   if #labeled_indices > 1 then
+      labeled_indices[#labeled_indices] = nil -- TODO huh?
+   end
+   DEBUG('Number of labeled batches: '.. #labeled_indices)
 
    local targets = nil
    if opt.no_cuda then
-      targets = torch.FloatTensor(labeled_batch_size)
+      targets = torch.FloatTensor(opt.batchSize)
    else
-      targets = torch.CudaTensor(labeled_batch_size)
+      targets = torch.CudaTensor(opt.batchSize)
    end
 
    local tic = torch.tic()  -- starts timer
    
    for t,v in ipairs(labeled_indices) do
-      xlua.progress(t, #labeld_indices)
+      xlua.progress(t, #labeled_indices)
       
       local inputs = trainData.data:index(1, v)
       targets:copy(trainData.labels:index(1, v))
@@ -240,22 +246,17 @@ function pseudo_train_one_epoch(opt, trainData, extraData, unlabeledProportion,
    end
 
    -- unlabeled data
-   -- If kAnneal == 0, then the gradient update will be zero, so skip it.
-   if kAnneal > 0 then   
-      local unlabeled_batch_size = math.floor(opt.batchSize*(unlabeledProportion))
-      unlabeled_indices[#unlabeled_indices] = nil -- TODO huh?
-      
-      local unlabeled_indices = torch.randperm(extraData.data:size(1)):long():split(unlabeled_batch_size)
-      
-      local targets = nil
-      if opt.no_cuda then
-	 targets = torch.FloatTensor(unlabeled_batch_size)
-      else
-	 targets = torch.CudaTensor(unlabeled_batch_size)
+   -- If pseudo_loss_weight == 0, then the gradient update will be zero, so skip it.
+   if pseudo_loss_weight > 0 then   
+      DEBUG('unlabeled batch size: '..opt.unlabeledBatchSize)
+      local unlabeled_indices = torch.randperm(extraData.data:size(1)):long():split(opt.unlabeledBatchSize)
+      if #unlabeled_indices then
+	 unlabeled_indices[#unlabeled_indices] = nil -- TODO huh?
       end
+      DEBUG('Number of unlabeled batches: '.. #unlabeled_indices)
       
       for t,v in ipairs(unlabeled_indices) do
-	 xlua.progress(t, #unlabwled_indices)
+	 xlua.progress(t, #unlabeled_indices)
 	 
 	 local inputs = extraData.data:index(1, v)
 	 
@@ -266,13 +267,16 @@ function pseudo_train_one_epoch(opt, trainData, extraData, unlabeledProportion,
 	    local outputs = model:forward(inputs)
 	    
 	    -- compute the pseudo labels.
-	    local _, predictedLabels = torch.max(outputs, 2)
-	    predictedLabels = predictedLabels:float()
-	    targets:copy(predictedLabels)
-	    
-	    local error = criterion:forward(outputs, targets) * kAnneal
+	    local _, targets = torch.max(outputs, 2)
+	    if opt.no_cuda then
+	       targets = targets:float()
+	    else
+	       targets = targets:cuda()
+	    end
+	       
+	    local error = criterion:forward(outputs, targets) * pseudo_loss_weight
 	     -- TODO I hope this is right...
-	    local error_gradient = criterion:backward(outputs, targets) * kAnneal
+	    local error_gradient = criterion:backward(outputs, targets) * pseudo_loss_weight
 	    model:backward(inputs, error_gradient)
 	    
 	    confusion:batchAdd(outputs, targets)
@@ -298,7 +302,7 @@ end
 -- classified on the validation set and the average number of
 -- milliseconds per sample required to train the model.
 function pseudo_train_validate_max_epochs(opt, provider, model,
-				   custom_model_layer_index, experiment_dir)
+					  custom_model_layer_index, experiment_dir)
    local valLogger = optim.Logger(paths.concat(experiment_dir, 'val.log'))
    valLogger:setNames{'% mean class accuracy (train set)', '% mean class accuracy (val set)'}
    valLogger.showPlot = false
@@ -317,23 +321,29 @@ function pseudo_train_validate_max_epochs(opt, provider, model,
       learningRateDecay = opt.learningRateDecay,
    }
 
-   -- New Pseudo label stuff
-   kAnneal = 0
-   unlabeledProportion = provider.extraData.size() / (provider.extraData.size() + provider.trainData.size())
+   pseudo_loss_weight = 0
    
    local val_percent_acc_last = 0
-   for epoch = 1,opt.max_epoch do
+   for epoch = 1, opt.max_epoch do
       local epoch_debug_str = "==> online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']'
       DEBUG(epoch_debug_str)
       -- drop learning rate every "epoch_step" epochs
       if epoch % opt.epoch_step == 0 then
 	 optimState.learningRate = optimState.learningRate/2
       end
+
+      -- Update pseudo_loss_weight according to the schedule
+      if epoch >= opt.pseudoStartingEpoch and epoch < opt.pseudoEndingEpoch then
+	 pseudo_loss_weight = opt.maxPseudoLossWeight * (epoch - opt.pseudoStartingEpoch) / (opt.pseudoEndingEpoch - opt.pseudoStartingEpoch)
+      elseif epoch >= opt.pseudoEndingEpoch then
+	 pseudo_loss_weight = opt.maxPseudoLossWeight
+      end
+      DEBUG('pseudo loss weight: '..pseudo_loss_weight)
       
       print(provider.trainData)
-      local train_acc = train_one_epoch(opt, provider.trainData, optimState,
-					model, criterion)
-      val_confusion = evaluate_model(provider.valData, model) -- TO DO
+      local train_acc = pseudo_train_one_epoch(opt, provider.trainData, provider.extraData, unlabeledProportion, pseudo_loss_weight, 
+					       optimState, model, criterion)
+      val_confusion = evaluate_model(provider.valData, model)
       
       log_validation_stats(valLogger, model, epoch, train_acc, val_confusion,
 			   optimState, experiment_dir)

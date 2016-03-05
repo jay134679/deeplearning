@@ -23,15 +23,21 @@ function parse_cmdline()
       --results_dir           (default "results")   directory to save results
       --debug_log_filename    (default "debug.log")  filename of debugging output
       -b,--batchSize          (default 64)          batch size
-      -r,--learningRate       (default 1)        learning rate
-      --learningRateDecay     (default 1e-7)      learning rate decay
+      -r,--learningRate       (default 1)           learning rate
+      --learningRateDecay     (default 1e-7)        learning rate decay
       --weightDecay           (default 0.0005)      weightDecay
       -m,--momentum           (default 0.9)         momentum
       -a, --augmented                               defaults to false
+      --usePseudoLabels                             If true, use pseudo label training method.
+      --unlabeledBatchSize    (default 128)         Batch size for pseudo-labeled unlabeled data.
+      --maxPseudoLossWeight   (default 3)           The maximum weight given to the loss of the pseudo-labeled data .
+      --pseudoStartingEpoch   (default 100)         pseudo label loss weight is zero until this epoch. Adjust according to max_epoch.
+      --pseudoEndingEpoch     (default 250)         psudeo label loss max weight realized at this epoch. Adjust according to max_epoch.
    ]]
    return opt
 end
 
+-- TODO(alex): What is this Maya? Can we delete it?
 --[[
 function load_provider(size, augmented)
     -- augmented_bool is a boolean that determined whether to use an augmented version of the data
@@ -78,7 +84,7 @@ function load_model(model_name, no_cuda)
    
    local model = nn.Sequential()
    -- 1st layer: data augmentation
-   add_batch_flip(model)
+   add_batch_flip(model)  -- TODO TODO TODO incorporate this into the data augmentation!
  
    custom_model_layer_index = nil
    if no_cuda then
@@ -104,10 +110,17 @@ function main()
    opt = parse_cmdline()
    experiment_dir = setup_experiment(opt)
    -- DEBUG function now callable
-   print(opt.augmented)
-   provider = load_provider(opt.size, 'training', opt.augmented)
-   model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
-   train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
+   print(opt)
+
+   if opt.usePseudoLabels then
+      provider = load_provider(opt.size, 'unlabeled', opt.augmented)
+      model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
+      pseudo_train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
+   else
+      provider = load_provider(opt.size, 'training', opt.augmented)
+      model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
+      train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
+   end
    print('Experiment complete.')
 end
 

@@ -3,8 +3,6 @@
 -- Original code written by jakezhao.
 -- Data loading and parsing code.
 
--- TODO allow data to be loaded separately. All full data OOMs on AWS.
-
 require 'nn'
 require 'image'
 require 'torch'
@@ -18,6 +16,11 @@ torch.setdefaulttensortype('torch.FloatTensor')
 
 -- Public function to load the Provider object. If its been saved to a file
 -- already, it uses that.
+
+-- providerTypes:
+-- training: trainData, valData
+-- unlabeled: trainData, extraData, valData
+-- evaluate, trainData, testData
 function load_provider(size, providerType, augmented)
    DEBUG('==> loading data')
    local data_filename = ''
@@ -126,11 +129,12 @@ function Provider:__init(size, providerType, augmented)
    local raw_test = nil
    local raw_extra = nil
    
-   if (providerType == 'training') then
+   if providerType == 'training' or providerType == 'unlabeled' then
      raw_val = torch.load('stl-10/val.t7b')
-   elseif (providerType == 'unlabeled') then
-     raw_extra = torch.load('stl-10/extra.t7b')
-   elseif (providerType == 'evaluate') then
+     if providerType == 'unlabeled' then
+	raw_extra = torch.load('stl-10/extra.t7b')
+     end
+   elseif providerType == 'evaluate' then
      raw_test = torch.load('stl-10/test.t7b')
    else
      error("[ERROR] unregconized value for 'providerType': "..providerType..". Choose 'training', 'unlabeled' or 'evaluate'")
@@ -158,7 +162,7 @@ function Provider:__init(size, providerType, augmented)
       trsize = 100
       valsize = 25
       testsize = 200
-      extrasize = 2000
+      extrasize = 100
    end
    if trsize == 0 then
       error("[ERROR] unregconized value for 'size' string: "..size..". Choose 'full', 'small', or 'tiny'.")
@@ -183,9 +187,8 @@ function Provider:__init(size, providerType, augmented)
    self.trainData.data = self.trainData.data:float()
    self.trainData.labels = self.trainData.labels:float()
    
-   -- validation
-
-   if (providerType == 'training') then
+   if (providerType == 'training' or providerType == 'unlabeled') then
+      -- validation
      DEBUG('loading validation data')
      self.valData = {
         data = torch.Tensor(),
@@ -194,37 +197,23 @@ function Provider:__init(size, providerType, augmented)
      }
      self.valData.data, self.valData.labels = parseDataLabel(
         raw_val.data, valsize, channel, height, width)	
-
-     --[[
-     -- extra
-     DEBUG('unlabeled data')
-     self.extraData = {
-        data = torch.Tensor(),
-        size = function() return extrasize end
-     }
-     self.extraData.data = parseUnlabeledData(
-        raw_extra.data, extrasize, channel, height, width)
-     ]]
-
-     -- convert from ByteTensor to Float
      self.valData.data = self.valData.data:float()
      self.valData.labels = self.valData.labels:float()
-     --self.extraData.data = self.extraData.data:float()
+
+     -- extra
+     if providerType == 'unlabeled' then
+	DEBUG('unlabeled data')
+	self.extraData = {
+	   data = torch.Tensor(),
+	   size = function() return extrasize end
+	}
+	self.extraData.data = parseUnlabeledData(
+	   raw_extra.data, extrasize, channel, height, width)
+	-- convert from ByteTensor to Float
+	self.extraData.data = self.extraData.data:float()
+     end
    end
    
-   if (providerType == 'unlabeled') then
-     -- extra
-      DEBUG('unlabeled data')
-      self.extraData = {
-         data = torch.Tensor(),
-         size = function() return extrasize end
-      }
-      self.extraData.data = parseUnlabeledData(
-        raw_extra.data, extrasize, channel, height, width)
-      self.extraData.data = self.extraData.data:float()
-
-   end
-
    -- test
    if (providerType == 'evaluate') then
      DEBUG('loading test data')
@@ -243,86 +232,67 @@ function Provider:__init(size, providerType, augmented)
    collectgarbage()
 end
 
+
+function transformRgbToYuv(dataObj, normalization)
+   for i = 1, dataObj:size() do
+      xlua.progress(i, dataObj:size())
+      -- rgb -> yuv
+      local rgb = dataObj.data[i]
+      local yuv = image.rgb2yuv(rgb)
+      -- normalize y locally:
+      yuv[{1}] = normalization(yuv[{{1}}])
+      dataObj.data[i] = yuv
+   end
+end   
+
+function normalizeUVMeanAndStd(dataObj, mean_u, std_u, mean_v, std_v)
+   -- normalize u globally:
+   dataObj.data:select(2,2):add(-mean_u)
+   dataObj.data:select(2,2):div(std_u)
+   -- normalize v globally:
+   dataObj.data:select(2,3):add(-mean_v)
+   dataObj.data:select(2,3):div(std_v)
+end
+
+
 function Provider:normalize()
   ----------------------------------------------------------------------
   -- preprocess/normalize train/val sets
   --
   DEBUG('<trainer> preprocessing data (color space + normalization)')
   collectgarbage()
+  
   local trainData = self.trainData
-  print(trainData:size())
+  print('Training data size: '..trainData:size())
+  
   -- preprocess trainSet
+  
   local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
-  for i = 1,trainData:size() do
-     --print("counter_images"..i)
-     xlua.progress(i, trainData:size())
-     -- rgb -> yuv
-     local rgb = trainData.data[i]
-     local yuv = image.rgb2yuv(rgb)
-     -- normalize y locally:
-     yuv[1] = normalization(yuv[{{1}}])
-     trainData.data[i] = yuv
-  end
-  -- normalize u globally:
+  transformRgbToYuv(trainData, normalization)
+  
+  -- normalize u and v globally:
   local mean_u = trainData.data:select(2,2):mean()
   local std_u = trainData.data:select(2,2):std()
-  trainData.data:select(2,2):add(-mean_u)
-  trainData.data:select(2,2):div(std_u)
-  -- normalize v globally:
   local mean_v = trainData.data:select(2,3):mean()
   local std_v = trainData.data:select(2,3):std()
-  trainData.data:select(2,3):add(-mean_v)
-  trainData.data:select(2,3):div(std_v)
-
+  normalizeUVMeanAndStd(trainData, mean_u, std_u, mean_v, std_v)
+  -- saving the normalizing constants for evaluation later
   trainData.mean_u = mean_u
   trainData.std_u = std_u
   trainData.mean_v = mean_v
   trainData.std_v = std_v
 
   -- preprocess either validate or test, depending on the providerType
-  local providerType = self.providerType
+  if self.providerType == 'training' or self.providerType == 'unlabeled' then
+    transformRgbToYuv(self.valData, normalization)
+    normalizeUVMeanAndStd(self.valData, mean_u, std_u, mean_v, std_v)
 
-  if providerType == 'training' then
-    local valData = self.valData
-
-    -- preprocess valSet
-    for i = 1,valData:size() do
-      xlua.progress(i, valData:size())
-       -- rgb -> yuv
-       local rgb = valData.data[i]
-       local yuv = image.rgb2yuv(rgb)
-       -- normalize y locally:
-       yuv[{1}] = normalization(yuv[{{1}}])
-       valData.data[i] = yuv
+    if self.providerType == 'unlabeled' then
+       transformRgbToYuv(self.extraData, normalization)
+       normalizeUVMeanAndStd(self.extraData, mean_u, std_u, mean_v, std_v)
     end
-    -- normalize u globally:
-    valData.data:select(2,2):add(-mean_u)
-    valData.data:select(2,2):div(std_u)
-    -- normalize v globally:
-    valData.data:select(2,3):add(-mean_v)
-    valData.data:select(2,3):div(std_v)
-
-    local extraData = self.extraData
-    -- TODO normalize unlabeled data with the training data?
-
-  elseif providerType == 'evaluate' then
-    local testData = self.testData
-
-    -- preprocess testSet
-    for i = 1,testData:size() do
-      xlua.progress(i, testData:size())
-       -- rgb -> yuv
-       local rgb = testData.data[i]
-       local yuv = image.rgb2yuv(rgb)
-       -- normalize y locally:
-       yuv[{1}] = normalization(yuv[{{1}}])
-       testData.data[i] = yuv
-    end
-    -- normalize u globally:
-    testData.data:select(2,2):add(-mean_u)
-    testData.data:select(2,2):div(std_u)
-    -- normalize v globally:
-    testData.data:select(2,3):add(-mean_v)
-    testData.data:select(2,3):div(std_v)
+  elseif self.providerType == 'evaluate' then
+    transformRgbToYuv(self.testData, normalization)
+    normalizeUVMeanAndStd(self.testData, mean_u, std_u, mean_v, std_v)
   end
 end
