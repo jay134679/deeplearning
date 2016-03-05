@@ -86,6 +86,7 @@ function load_model(model_name, no_cuda)
       custom_model_layer_index = 2
    else
       require 'cunn'
+      model:get(1) -- Maybe here? model:get(1).weight:copy(a)
       model:add(nn.Copy('torch.FloatTensor','torch.CudaTensor'):cuda())
       model:add(dofile('models/'..model_name..'.lua'):cuda())
       model:get(2).updateGradInput = function(input) return end
