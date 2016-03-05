@@ -28,6 +28,7 @@ function parse_cmdline()
       --weightDecay           (default 0.0005)      weightDecay
       -m,--momentum           (default 0.9)         momentum
       -a, --augmented                               defaults to false
+      --pre_train_res         (default "")          file for pre train
       --usePseudoLabels                             If true, use pseudo label training method.
       --unlabeledBatchSize    (default 128)         Batch size for pseudo-labeled unlabeled data.
       --maxPseudoLossWeight   (default 3)           The maximum weight given to the loss of the pseudo-labeled data .
@@ -37,45 +38,6 @@ function parse_cmdline()
    return opt
 end
 
--- TODO(alex): What is this Maya? Can we delete it?
---[[
-function load_provider(size, augmented)
-    -- augmented_bool is a boolean that determined whether to use an augmented version of the data
-   print(c.blue '==>' ..' loading data')
-   -- TODO delete provider.t7 this file once you add unlabeled data to provider.lua.
-
-   if not augmented then
-      data_filename = 'provider.'..size..'.t7'
-   elseif augmented then
-       data_filename = 'provider.'..size..'.augmented.t7'
-   else
-       print("something went wrong")
-   end
-
-   data_file = io.open(data_filename, 'r')
-   provider = nil
-   if data_file ~= nil then
-      DEBUG('loading data from file...')
-      provider = torch.load(data_filename)
-   else
-      DEBUG('downloading data...')
-      provider = Provider(size)
-      
-      if augmented then
-          print(c.blue '==>' ..' augmenting data')
-          provider.trainData.data = augmented_all(provider.trainData.data)
-      end
-
-      --torch.save(data_filename, provider)
-      
-      --provider:normalize()
-      --provider.trainData.data = provider.trainData.data:float()
-      --provider.valData.data = provider.valData.data:float()
-      torch.save(data_filename, provider)
-   end
-   return provider
-end
-]]
 -- returns the constructed sequential model, and the index of the sub-model from
 -- the models/ directory.
 function load_model(model_name, no_cuda)
@@ -92,6 +54,7 @@ function load_model(model_name, no_cuda)
       custom_model_layer_index = 2
    else
       require 'cunn'
+      model:get(1) -- Maybe here? model:get(1).weight:copy(a)
       model:add(nn.Copy('torch.FloatTensor','torch.CudaTensor'):cuda())
       model:add(dofile('models/'..model_name..'.lua'):cuda())
       model:get(2).updateGradInput = function(input) return end
@@ -106,6 +69,15 @@ function load_model(model_name, no_cuda)
    return model, custom_model_layer_index
 end
 
+function kMeansPreTraining(pre_train_res, model)
+   if pre_train_res ~= "" then
+      DEBUG('Pre-training model with K-means...')
+      centroids = torch.load(opt.pre_train_res)
+      reshaped = torch.reshape(centroids, 64,3,3,3)
+      model:get(3):get(1).weight:copy(reshaped)
+   end
+end   
+
 function main()
    opt = parse_cmdline()
    experiment_dir = setup_experiment(opt)
@@ -115,13 +87,21 @@ function main()
    if opt.usePseudoLabels then
       provider = load_provider(opt.size, 'unlabeled', opt.augmented)
       model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
+      kMeansPreTraining(opt.pre_train_res, model)
       pseudo_train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
    else
       provider = load_provider(opt.size, 'training', opt.augmented)
       model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
+      kMeansPreTraining(opt.pre_train_res, model)
       train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
    end
    print('Experiment complete.')
 end
 
 main()
+
+
+
+
+
+

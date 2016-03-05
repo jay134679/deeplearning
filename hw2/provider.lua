@@ -256,43 +256,47 @@ end
 
 
 function Provider:normalize()
-  ----------------------------------------------------------------------
-  -- preprocess/normalize train/val sets
-  --
-  DEBUG('<trainer> preprocessing data (color space + normalization)')
-  collectgarbage()
-  
-  local trainData = self.trainData
-  print('Training data size: '..trainData:size())
-  
-  -- preprocess trainSet
-  
-  local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
-  transformRgbToYuv(trainData, normalization)
-  
-  -- normalize u and v globally:
-  local mean_u = trainData.data:select(2,2):mean()
-  local std_u = trainData.data:select(2,2):std()
-  local mean_v = trainData.data:select(2,3):mean()
-  local std_v = trainData.data:select(2,3):std()
-  normalizeUVMeanAndStd(trainData, mean_u, std_u, mean_v, std_v)
-  -- saving the normalizing constants for evaluation later
-  trainData.mean_u = mean_u
-  trainData.std_u = std_u
-  trainData.mean_v = mean_v
-  trainData.std_v = std_v
-
-  -- preprocess either validate or test, depending on the providerType
-  if self.providerType == 'training' or self.providerType == 'unlabeled' then
-    transformRgbToYuv(self.valData, normalization)
-    normalizeUVMeanAndStd(self.valData, mean_u, std_u, mean_v, std_v)
-
-    if self.providerType == 'unlabeled' then
-       transformRgbToYuv(self.extraData, normalization)
-       normalizeUVMeanAndStd(self.extraData, mean_u, std_u, mean_v, std_v)
-    end
-  elseif self.providerType == 'evaluate' then
-    transformRgbToYuv(self.testData, normalization)
-    normalizeUVMeanAndStd(self.testData, mean_u, std_u, mean_v, std_v)
-  end
+   ----------------------------------------------------------------------
+   -- preprocess/normalize train/val sets
+   --
+   DEBUG('<trainer> preprocessing data (color space + normalization)')
+   collectgarbage()
+   
+   local trainData = self.trainData
+   print('Training data size: '..trainData:size())
+   
+   -- preprocess trainSet
+   
+   local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
+   transformRgbToYuv(trainData, normalization)
+   
+   -- normalize u and v globally:
+   local mean_u = trainData.data:select(2,2):mean()
+   local std_u = trainData.data:select(2,2):std()
+   local mean_v = trainData.data:select(2,3):mean()
+   local std_v = trainData.data:select(2,3):std()
+   normalizeUVMeanAndStd(trainData, mean_u, std_u, mean_v, std_v)
+   -- saving the normalizing constants for evaluation later
+   trainData.mean_u = mean_u
+   trainData.std_u = std_u
+   trainData.mean_v = mean_v
+   trainData.std_v = std_v
+   
+   -- preprocess either validate or test, depending on the providerType
+   if self.providerType == 'training' or self.providerType == 'unlabeled' then
+      -- validation
+      transformRgbToYuv(self.valData, normalization)
+      normalizeUVMeanAndStd(self.valData, mean_u, std_u, mean_v, std_v)
+      
+      if self.providerType == 'unlabeled' then
+	 -- unlabeled
+	 transformRgbToYuv(self.extraData, normalization)
+	 normalizeUVMeanAndStd(self.extraData, mean_u, std_u, mean_v, std_v)
+      end
+   elseif self.providerType == 'evaluate' then
+      -- testing
+      transformRgbToYuv(self.testData, normalization)
+      normalizeUVMeanAndStd(self.testData, mean_u, std_u, mean_v, std_v)
+   end
 end
+
