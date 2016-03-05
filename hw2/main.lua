@@ -28,48 +28,11 @@ function parse_cmdline()
       --weightDecay           (default 0.0005)      weightDecay
       -m,--momentum           (default 0.9)         momentum
       -a, --augmented                               defaults to false
+      --pre_train_res         (default "")          file for pre train
    ]]
    return opt
 end
 
---[[
-function load_provider(size, augmented)
-    -- augmented_bool is a boolean that determined whether to use an augmented version of the data
-   print(c.blue '==>' ..' loading data')
-   -- TODO delete provider.t7 this file once you add unlabeled data to provider.lua.
-
-   if not augmented then
-      data_filename = 'provider.'..size..'.t7'
-   elseif augmented then
-       data_filename = 'provider.'..size..'.augmented.t7'
-   else
-       print("something went wrong")
-   end
-
-   data_file = io.open(data_filename, 'r')
-   provider = nil
-   if data_file ~= nil then
-      DEBUG('loading data from file...')
-      provider = torch.load(data_filename)
-   else
-      DEBUG('downloading data...')
-      provider = Provider(size)
-      
-      if augmented then
-          print(c.blue '==>' ..' augmenting data')
-          provider.trainData.data = augmented_all(provider.trainData.data)
-      end
-
-      --torch.save(data_filename, provider)
-      
-      --provider:normalize()
-      --provider.trainData.data = provider.trainData.data:float()
-      --provider.valData.data = provider.valData.data:float()
-      torch.save(data_filename, provider)
-   end
-   return provider
-end
-]]
 -- returns the constructed sequential model, and the index of the sub-model from
 -- the models/ directory.
 function load_model(model_name, no_cuda)
@@ -105,11 +68,22 @@ function main()
    opt = parse_cmdline()
    experiment_dir = setup_experiment(opt)
    -- DEBUG function now callable
-   print(opt.augmented)
    provider = load_provider(opt.size, 'training', opt.augmented)
    model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
+
+   if opt.pre_train_res ~= "" then
+      centroids = torch.load(opt.pre_train_res)
+      reshaped = torch.reshape(centroids, 64,3,3,3)
+      model:get(3):get(1).weight:copy(reshaped)
+   end
    train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
    print('Experiment complete.')
 end
 
 main()
+
+
+
+
+
+

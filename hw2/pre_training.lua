@@ -16,7 +16,7 @@ function parse_cmdline()
       --debug_log_filename    (default "pre_training_debug.log")  filename of debugging output
       -b, --batch_size        (default 20)          batch size
       -k, --kernels           (default 64)          number of "kernels" (centroids) you want from kmeans
-      -n, --niter             (default 1)        number of kmeans iterations
+      -n, --niter             (default 500)        number of kmeans iterations
       -a --augmented                                defaults to false
    ]]
    return opt
@@ -53,8 +53,8 @@ function extract_patches_batch(src_images_tensor, threshold)
     --[[ sobelfied_image input is a table of images who have been run throguh the sobel filter.
     threshold is a scalar  determining the mean approximate gradient of the patch]]
     
-    local stride = 3
-    local patch_size = 5
+    local stride = 2
+    local patch_size = 3
     local chosen_patches = {}
     local start_height_pixel= 1
     local start_width_pixel = 1
@@ -100,7 +100,7 @@ end
 
 function normalize_patches(provider, chosen_patches)
    --we need an extra normalization function because the unlabeled data  needs to be normalized after patched are extracted, not before 
-    patch_size = 5
+    patch_size = 3
     local chosen_patches_tensor = torch.Tensor(#chosen_patches, patch_size*patch_size*3)
     local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
         -- preprocess valSet
@@ -147,16 +147,15 @@ function main()
    provider = load_provider(opt.size, 'unlabeled',opt.augmented)
    -- run throguh sobel filter
    print(provider.extraData.data:size())
-   chosen_patches = extract_patches_batch(provider.extraData.data[{{1,10},{},{},{}}], opt.kmeans_threshold) 
+   --chosen_patches = extract_patches_batch(provider.extraData.data[{{1,10},{},{},{}}], opt.kmeans_threshold) 
+   chosen_patches = extract_patches_batch(provider.extraData.data, opt.kmeans_threshold)
    chosen_patches_tensor = normalize_patches(provider, chosen_patches)
-   --chosen_patches_tensor = reshape_for_kmeans(chosen_patches)
-   --chosen_patches_tensor = extract_patches_batch(provider.extraData.data, opt.kmeans_threshold)
    print (chosen_patches_tensor:size())
    --print(opt.kernels, opt.niter, opt.batch_size)
 
    centroids,totalcounts = unsup.kmeans(chosen_patches_tensor, opt.kernels, opt.niter, opt.batch_size, false, true)
    print(totalcounts)
-   torch.save('kmeans.t7',centroids)
+   torch.save('kmeans'..opt.size..'.t7',centroids)
    print('Experiment complete.')
 end
 
