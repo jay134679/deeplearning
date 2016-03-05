@@ -98,7 +98,7 @@ function do_something_redux(src_image)
     
     -- change the hue
     
-    --[[if torch.uniform() > 0.5 then
+    if torch.uniform() > 0.5 then
         new = image.rgb2hsv(new)
         if torch.uniform() > 0.5 then
             new[1] = new[1]-0.1
@@ -106,7 +106,7 @@ function do_something_redux(src_image)
             new[1] = new[1]+0.1
         end
         new = image.hsv2rgb(new)
-    end]]
+    end
    
  
     -- tanslate

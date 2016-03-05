@@ -16,8 +16,8 @@ function parse_cmdline()
       --debug_log_filename    (default "pre_training_debug.log")  filename of debugging output
       -b, --batch_size        (default 20)          batch size
       -k, --kernels           (default 64)          number of "kernels" (centroids) you want from kmeans
-      -n, --niter             (default 5)           number of kmeans iterations
-      -a --augmented                               defaults to false
+      -n, --niter             (default 1000)        number of kmeans iterations
+      -a --augmented                                defaults to false
    ]]
    return opt
 end
@@ -97,6 +97,7 @@ function extract_patches_batch(src_images_tensor, threshold)
         end
 
         if image_ct%100==0 then
+            print(image_ct)
             collectgarbage()
         end
     end
@@ -124,8 +125,8 @@ function main()
    provider = load_provider(opt.size, 'unlabeled',opt.augmented)
    -- run throguh sobel filter
    print(provider.extraData.data:size())
-   chosen_patches_tensor = extract_patches_batch(provider.extraData.data[{{1,10},{},{},{}}], opt.kmeans_threshold) 
-   --chosen_patches_tensor = extract_patches_batch(provider.extraData.data, opt.kmeans_threshold)
+   --chosen_patches_tensor = extract_patches_batch(provider.extraData.data[{{1,10},{},{},{}}], opt.kmeans_threshold) 
+   chosen_patches_tensor = extract_patches_batch(provider.extraData.data, opt.kmeans_threshold)
    print (chosen_patches_tensor:size())
    --print(opt.kernels, opt.niter, opt.batch_size)
 

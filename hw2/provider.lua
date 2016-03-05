@@ -302,9 +302,28 @@ function Provider:normalize()
     valData.data:select(2,3):add(-mean_v)
     valData.data:select(2,3):div(std_v)
 
-    local extraData = self.extraData
+    --local extraData = self.extraData -- TO DO I commented this out. not needed(?)
     -- TODO normalize unlabeled data with the training data?
 
+  --[[elseif providerType == 'unlabeled' then
+    local extraData = self.extraData
+        -- preprocess valSet
+    for i = 1,valData:size() do
+      xlua.progress(i, valData:size())
+       -- rgb -> yuv
+       local rgb = valData.data[i]
+       local yuv = image.rgb2yuv(rgb)
+       -- normalize y locally:
+       yuv[{1}] = normalization(yuv[{{1}}])
+       valData.data[i] = yuv
+    end
+    -- normalize u globally:
+    valData.data:select(2,2):add(-mean_u)
+    valData.data:select(2,2):div(std_u)
+    -- normalize v globally:
+    valData.data:select(2,3):add(-mean_v)
+    valData.data:select(2,3):div(std_v)]]
+  
   elseif providerType == 'evaluate' then
     local testData = self.testData
 
@@ -326,3 +345,24 @@ function Provider:normalize()
     testData.data:select(2,3):div(std_v)
   end
 end
+
+function normalize_patches()
+  --[[ we need an extra normalization function because the unlabeled data  needs to be normalized after patched are extracted, not before ]]
+  local extraData = self.extraData
+        -- preprocess valSet
+    for i = 1,valData:size() do
+      xlua.progress(i, valData:size())
+       -- rgb -> yuv
+       local rgb = valData.data[i]
+       local yuv = image.rgb2yuv(rgb)
+       -- normalize y locally:
+       yuv[{1}] = normalization(yuv[{{1}}])
+       valData.data[i] = yuv
+    end
+    -- normalize u globally:
+    valData.data:select(2,2):add(-mean_u)
+    valData.data:select(2,2):div(std_u)
+    -- normalize v globally:
+    valData.data:select(2,3):add(-mean_v)
+    valData.data:select(2,3):div(std_v)]]
+
