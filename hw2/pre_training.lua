@@ -16,8 +16,8 @@ function parse_cmdline()
       --debug_log_filename    (default "pre_training_debug.log")  filename of debugging output
       -b, --batch_size        (default 20)          batch size
       -k, --kernels           (default 64)          number of "kernels" (centroids) you want from kmeans
-      -n, --niter             (default 5)           number of kmeans iterations
-      -a --augmented                               defaults to false
+      -n, --niter             (default 1)        number of kmeans iterations
+      -a --augmented                                defaults to false
    ]]
    return opt
 end
@@ -56,7 +56,6 @@ function extract_patches_batch(src_images_tensor, threshold)
     local stride = 3
     local patch_size = 5
     local chosen_patches = {}
-    
     local start_height_pixel= 1
     local start_width_pixel = 1
     local sobelfied_image = nil
@@ -65,38 +64,29 @@ function extract_patches_batch(src_images_tensor, threshold)
     for image_ct =1, src_images_tensor:size(1) do
  
         src_image = src_images_tensor[image_ct] -- get image
-    
         sobelfied_image = sobel_operator(src_image) -- apply sobel filter
-        
         start_height_pixel= 1
         start_width_pixel = 1
         
-
         while start_height_pixel+patch_size<= sobelfied_image:size(2) do 
             while start_width_pixel+patch_size<=  sobelfied_image:size(3) do 
-
                 local patch_considered = sobelfied_image[{{},{start_height_pixel,start_height_pixel+patch_size -1},
                             {start_width_pixel,start_width_pixel+patch_size -1}}]
-
                 mean_grad = torch.mean(patch_considered)
-                
                 if mean_grad > threshold then --check if this is an edge
-                    
                     -- retrieved corresponding patch from original image
                     local original_patch = src_image[{{},{start_height_pixel,start_height_pixel+patch_size -1},
-                            {start_width_pixel,start_width_pixel+patch_size -1}}]
-                    
+                            {start_width_pixel,start_width_pixel+patch_size -1}}]                    
                     table.insert(chosen_patches,original_patch)
                 end
-
                 start_width_pixel = start_width_pixel+stride -- advance pointer
             end
-            
             start_width_pixel = 1
             start_height_pixel = start_height_pixel+stride
         end
 
         if image_ct%100==0 then
+            print(image_ct)
             collectgarbage()
         end
     end
@@ -105,15 +95,37 @@ function extract_patches_batch(src_images_tensor, threshold)
     print("done")
     return chosen_patches
     
-    --[[ stack valid patches
-    local chosen_patches_tensor = torch.Tensor(#chosen_patches, patch_size*patch_size*3)
-    for i=1 , #chosen_patches do
-        local a = torch.reshape(chosen_patches[i], 1, chosen_patches_tensor:size(2))
-        chosen_patches_tensor[{{i},{}}] = a
-    end
-    return chosen_patches_tensor]]
 end
 
+
+function normalize_patches(provider, chosen_patches)
+   --we need an extra normalization function because the unlabeled data  needs to be normalized after patched are extracted, not before 
+    patch_size = 5
+    local chosen_patches_tensor = torch.Tensor(#chosen_patches, patch_size*patch_size*3)
+    local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
+        -- preprocess valSet
+    for i = 1, #chosen_patches do
+      xlua.progress(i, #chosen_patches)
+       -- rgb -> yuv
+       local rgb = chosen_patches[i]
+       local yuv = image.rgb2yuv(rgb)
+       -- normalize y locally:
+       yuv[{1}] = normalization(yuv[{{1}}])
+
+       -- normalize u globally
+       yuv[2] = yuv[2]:add(-provider.trainData.mean_u)
+       yuv[2] = yuv[2]:div(provider.trainData.std_u)
+
+       yuv[3] = yuv[3]:add(-provider.trainData.mean_v)
+       yuv[3] = yuv[3]:div(provider.trainData.std_v)
+       
+       --chosen_patches[i] = yuv
+       local a = torch.reshape(yuv, 1, chosen_patches_tensor:size(2))
+       chosen_patches_tensor[{{i},{}}] = a
+
+    end
+    return chosen_patches_tensor
+end
 
 function reshape_for_kmeans(chosen_patches)
    -- stack valid patches
@@ -136,7 +148,8 @@ function main()
    -- run throguh sobel filter
    print(provider.extraData.data:size())
    chosen_patches = extract_patches_batch(provider.extraData.data[{{1,10},{},{},{}}], opt.kmeans_threshold) 
-   chosen_patches_tensor = reshape_for_kmeans(chosen_patches)
+   chosen_patches_tensor = normalize_patches(provider, chosen_patches)
+   --chosen_patches_tensor = reshape_for_kmeans(chosen_patches)
    --chosen_patches_tensor = extract_patches_batch(provider.extraData.data, opt.kmeans_threshold)
    print (chosen_patches_tensor:size())
    --print(opt.kernels, opt.niter, opt.batch_size)
