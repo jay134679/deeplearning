@@ -103,8 +103,21 @@ function extract_patches_batch(src_images_tensor, threshold)
 
     collectgarbage()
     print("done")
+    return chosen_patches
     
-    -- stack valid patches
+    --[[ stack valid patches
+    local chosen_patches_tensor = torch.Tensor(#chosen_patches, patch_size*patch_size*3)
+    for i=1 , #chosen_patches do
+        local a = torch.reshape(chosen_patches[i], 1, chosen_patches_tensor:size(2))
+        chosen_patches_tensor[{{i},{}}] = a
+    end
+    return chosen_patches_tensor]]
+end
+
+
+function reshape_for_kmeans(chosen_patches)
+   -- stack valid patches
+    patch_size = 5
     local chosen_patches_tensor = torch.Tensor(#chosen_patches, patch_size*patch_size*3)
     for i=1 , #chosen_patches do
         local a = torch.reshape(chosen_patches[i], 1, chosen_patches_tensor:size(2))
@@ -112,8 +125,6 @@ function extract_patches_batch(src_images_tensor, threshold)
     end
     return chosen_patches_tensor
 end
-
-
 
 function main()
    opt = parse_cmdline()
@@ -124,7 +135,8 @@ function main()
    provider = load_provider(opt.size, 'unlabeled',opt.augmented)
    -- run throguh sobel filter
    print(provider.extraData.data:size())
-   chosen_patches_tensor = extract_patches_batch(provider.extraData.data[{{1,10},{},{},{}}], opt.kmeans_threshold) 
+   chosen_patches = extract_patches_batch(provider.extraData.data[{{1,10},{},{},{}}], opt.kmeans_threshold) 
+   chosen_patches_tensor = reshape_for_kmeans(chosen_patches)
    --chosen_patches_tensor = extract_patches_batch(provider.extraData.data, opt.kmeans_threshold)
    print (chosen_patches_tensor:size())
    --print(opt.kernels, opt.niter, opt.batch_size)
