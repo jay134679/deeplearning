@@ -72,6 +72,7 @@ function main()
    model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
 
    if opt.pre_train_res ~= "" then
+      print ("==> using centroids to initialize filters")
       centroids = torch.load(opt.pre_train_res)
       reshaped = torch.reshape(centroids, 64,3,3,3)
       model:get(3):get(1).weight:copy(reshaped)
