@@ -12,7 +12,7 @@ function parse_cmdline()
       --exp_name              (default "pre_training")          name of the current experiment. optional.
       --no_cuda                                     whether to use cuda or not. defaults to false, so cuda is used by default.
       --results_dir           (default "results")   directory to save results
-      --kmeans_threshold      (default 140)         a scalar  determining the min mean approximate gradient of the patch(want only edges)
+      --kmeans_threshold      (default 150)         a scalar  determining the min mean approximate gradient of the patch(want only edges)
       --debug_log_filename    (default "pre_training_debug.log")  filename of debugging output
       -b, --batch_size        (default 20)          batch size
       -k, --kernels           (default 64)          number of "kernels" (centroids) you want from kmeans
@@ -60,6 +60,7 @@ function extract_patches_batch(src_images_tensor, threshold)
     local start_width_pixel = 1
     local sobelfied_image = nil
     local src_image = nil
+    local cap_per_image  = 50
     
     for image_ct =1, src_images_tensor:size(1) do
  
@@ -67,6 +68,7 @@ function extract_patches_batch(src_images_tensor, threshold)
         sobelfied_image = sobel_operator(src_image) -- apply sobel filter
         start_height_pixel= 1
         start_width_pixel = 1
+        local potential_patches_per_image = {}
         
         while start_height_pixel+patch_size<= sobelfied_image:size(2) do 
             while start_width_pixel+patch_size<=  sobelfied_image:size(3) do 
@@ -77,7 +79,8 @@ function extract_patches_batch(src_images_tensor, threshold)
                     -- retrieved corresponding patch from original image
                     local original_patch = src_image[{{},{start_height_pixel,start_height_pixel+patch_size -1},
                             {start_width_pixel,start_width_pixel+patch_size -1}}]                    
-                    table.insert(chosen_patches,original_patch)
+                    --table.insert(chosen_patches,original_patch)
+                    table.insert(potential_patches_per_image, original_patch)
                 end
                 start_width_pixel = start_width_pixel+stride -- advance pointer
             end
@@ -88,6 +91,14 @@ function extract_patches_batch(src_images_tensor, threshold)
         if image_ct%100==0 then
             print(image_ct)
             collectgarbage()
+        end
+        -- for each image choose x patches at random
+        if #potential_patches_per_image >0 then
+            indices = torch.randperm(#potential_patches_per_image)
+            take_indices = indices[{{1,math.min(#potential_patches_per_image,cap_per_image)}}]
+            for i=1, take_indices:size(1) do
+                table.insert(chosen_patches, potential_patches_per_image[i])
+            end
         end
     end
 
@@ -148,14 +159,25 @@ function main()
    -- run throguh sobel filter
    print(provider.extraData.data:size())
    --chosen_patches = extract_patches_batch(provider.extraData.data[{{1,10},{},{},{}}], opt.kmeans_threshold) 
-   chosen_patches = extract_patches_batch(provider.extraData.data, opt.kmeans_threshold)
-   chosen_patches_tensor = normalize_patches(provider, chosen_patches)
-   print (chosen_patches_tensor:size())
+   local data_filename = 'chosen_patches_tensor.'..opt.size..'.t7'
+   local data_file = io.open(data_filename, 'r')
+   print(data_file)
+   if data_file == nil then
+      print("==> creating tensor") 
+      chosen_patches = extract_patches_batch(provider.extraData.data, opt.kmeans_threshold)
+      chosen_patches_tensor = normalize_patches(provider, chosen_patches)
+      print (chosen_patches_tensor:size())
+      torch.save('chosen_patches_tensor.'..opt.size..'.t7',chosen_patches_tensor)
+   else
+      print("==> loading saved tensor")
+      chosen_patches_tensor = torch.load(data_filename)
+   end
+   collectgarbage()
    --print(opt.kernels, opt.niter, opt.batch_size)
 
    centroids,totalcounts = unsup.kmeans(chosen_patches_tensor, opt.kernels, opt.niter, opt.batch_size, false, true)
    print(totalcounts)
-   torch.save('kmeans'..opt.size..'.t7',centroids)
+   torch.save('kmeans.'..opt.size..'.t7',centroids)
    print('Experiment complete.')
 end
 

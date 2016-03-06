@@ -84,6 +84,11 @@ function main()
    -- DEBUG function now callable
    print(opt)
 
+   --[[if opt.pre_train_res ~= "" then
+      print ("==> using centroids to initialize filters")
+      centroids = torch.load(opt.pre_train_res)
+      reshaped = torch.reshape(centroids, 64,3,3,3)
+      model:get(3):get(1).weight:copy(reshaped)]]
    if opt.usePseudoLabels then
       provider = load_provider(opt.size, 'unlabeled', opt.augmented)
       model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
