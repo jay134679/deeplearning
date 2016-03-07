@@ -252,7 +252,7 @@ function pseudo_train_one_epoch(opt, trainData, extraData, unlabeledProportion, 
    if pseudo_loss_weight > 0 then   
       DEBUG('unlabeled batch size: '..opt.unlabeledBatchSize)
       local unlabeled_indices = torch.randperm(extraData.data:size(1)):long():split(opt.unlabeledBatchSize)
-      if #unlabeled_indices then
+      if #unlabeled_indices > 1 then
 	 unlabeled_indices[#unlabeled_indices] = nil -- TODO huh?
       end
       DEBUG('Number of unlabeled batches: '.. #unlabeled_indices)
