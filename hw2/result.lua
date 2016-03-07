@@ -99,7 +99,7 @@ end
 
 function run(size, model_filename, output_filename)
    -- NOTE: This are global on purpose, so this can be tested in the REPL.
-   provider = load_provider(size, 'evaluate')
+   provider = load_provider(size, 'evaluate', false)
 
    model = torch.load(model_filename):cuda()
    local predictions_str = create_predictions_string(model, provider.testData)
