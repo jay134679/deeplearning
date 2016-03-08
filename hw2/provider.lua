@@ -48,10 +48,6 @@ function load_provider(size, providerType, augmented)
          DEBUG('Augmenting labeled data...')
          provider.trainData.data, provider.trainData.labels = augmented_all(provider.trainData.data,
 									    provider.trainData.labels)
-	 if providerType == 'unlabeled' then
-	    DEBUG('Augmenting unlabeled data...')
-	    provider.extraData.data = augmented_all(provider.extraData.data)
-	 end
       end
       provider:normalize() -- TO DO 
       torch.save(data_filename, provider)

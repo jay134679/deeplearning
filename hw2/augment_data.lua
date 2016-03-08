@@ -138,7 +138,6 @@ end
 
 
 -- returns augmented data and labels
--- If label_input is nil (unlabeled data), labels are not returned.
 function augmented_all(data_input, label_input)
     local new_data = data_input:clone()
 
@@ -147,13 +146,8 @@ function augmented_all(data_input, label_input)
         new_data[i] =  do_something_redux(new_data[i])
     end
     local stacked_data = stack_tensors(data_input, new_data):float()
-    local stacked_labels = nil
-    if label_input then
-       stacked_labels = stack_labels(label_input, label_input):float()
-       return stacked_data, stacked_labels
-    else
-       return stacked_data
-    end
+    local stacked_labels = stacked_labels = stack_labels(label_input, label_input):float()
+    return stacked_data, stacked_labels
 end
 
 
