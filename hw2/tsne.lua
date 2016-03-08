@@ -30,7 +30,7 @@ function loadData(numData)
    print(testData)
    
    testData.size = function() return numData end
-   testData.data = testData.data:narrow(1, 1, numData):float()
+   testData.data = testData.data:narrow(1, 1, numData):cuda()
    testData.labels = testData.labels:narrow(1, 1, numData):float()
    
 -- TODO selecting single channel...
@@ -56,8 +56,8 @@ end
 
 function runModel(model, inputDataObj, layerNumber)
    print('Running forward pass..')
-   _ = model:forward(inputDataObj.data)
-   local layer = vgg:get(layerNumber)
+   local _ = model:forward(inputDataObj.data):cuda()
+   local layer = model:get(layerNumber)
    print('Extracting model layer '..layerNumber..': ')
    print(layer)
    local layerOutput = layer.output
@@ -68,7 +68,6 @@ end
 
 function runTsne(layerOutput)
    print('Preparing data for t-SNE...')
-   -- TODO cuda?
    local x = torch.DoubleTensor(layerOutput:size()):copy(layerOutput)
    -- Flatten data
    x:resize(x:size(1), x:size(2) * x:size(3) * x:size(4))
@@ -83,15 +82,18 @@ function runTsne(layerOutput)
    local mapped_x1 = m.embedding.tsne(x, opts)
    print('t-SNE complete!')
    im_size = 4096
-   -- TODO not sure about this resizeAs call
-   local map_im = m.draw_image_map(mapped_x1, x:resizeAs(layerOutput), im_size,
-				   0, true)
+   print('Calling draw_image_map...')
+   local map_im = m.draw_image_map(mapped_x1, 
+                                   x:resize(layerOutput:size(1), layerOutput:size(2), layerOutput:size(3), layerOutput:size(4)),
+                                   im_size, 0, true)
    return map_im
 end
    
 function saveImage(tsneTensor, outputDir, layerNumber, numData)
    local outputFilename = 'tnse.layer'..layerNumber..'.ndata'..numData..'.t7'
-   torch.save(paths.concat(outputDir, outputFilename), tsneTensor)
+   local outputPath = paths.concat(outputDir, outputFilename)
+   print('Saving file: '..outputPath)
+   torch.save(outputPath, tsneTensor)
 end
 
 function main()
@@ -108,4 +110,4 @@ function main()
    saveImage(tsneTensor, options.model_dir, options.layer_number, options.num_data)
 end
 
---main()
+main()
