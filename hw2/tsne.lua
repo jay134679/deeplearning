@@ -11,9 +11,10 @@ require 'provider'
 
 function parse_cmdline()
    local options = lapp[[
-      --layer_number   (default 8)    The layer of the model to extract: 8, 16, 28, or 40.
-      --model_dir     (default "")   The directory with the 'model.net' file to load, and where the output file will go.
-      --num_data       (default 1000) The number of data points to use.
+      --layer_number   (default 8)           The layer of the model to extract: 8, 16, 28, or 40.
+      --model_dir      (default "")          The directory with the model file to load, and where the output file will go.
+      --model_name     (default "model.net") The filename of the model file.
+      --num_data       (default 1000)        The number of data points to use.
    ]]
    return options
 end
@@ -42,8 +43,8 @@ function loadData(numData)
    return testData
 end
 
-function loadModel(modelDir)
-   local modelFilename = paths.concat(modelDir, 'model.net')
+function loadModel(modelDir, modelName)
+   local modelFilename = paths.concat(modelDir, modelName)
    print('Loading model: '..modelFilename)
    local model = torch.load(modelFilename):cuda()
    -- TODO clear the model and gc?
@@ -88,9 +89,9 @@ function runTsne(layerOutput)
    return map_im
 end
    
-function saveImage(tSneTensor, outputDir, layerNumber)
-   local outputFilename = 'tnse.layer'..layerNumber..'.t7'
-   torch.save(tSneTensor, paths.concat(outputDir, outputFilename))
+function saveImage(tsneTensor, outputDir, layerNumber, numData)
+   local outputFilename = 'tnse.layer'..layerNumber..'.ndata'..numData..'.t7'
+   torch.save(paths.concat(outputDir, outputFilename), tsneTensor)
 end
 
 function main()
@@ -100,11 +101,11 @@ function main()
       exit()
    end
 
-   local dataObj = loadData(options.numData)
-   local model = loadModel(options.model_dir)
+   local dataObj = loadData(options.num_data)
+   local model = loadModel(options.model_dir, options.model_name)
    local layerOutput = runModel(model, dataObj, options.layer_number)
    local tsneTensor = runTsne(layerOutput)
-   saveImage(tsneTensor, options.model_dir, loptions.layer_number)
+   saveImage(tsneTensor, options.model_dir, options.layer_number, options.num_data)
 end
 
-main()
+--main()
