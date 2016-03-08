@@ -42,10 +42,10 @@ function parse_commandline()
    cmd:text()
    cmd:text("Options:")
    cmd:option('--size', 'full', 'how many samples do we load from test data: tiny | small | full. Required.')
-   cmd:option('--save', 'results', 'subdirectory to save/log experiments in')
+   cmd:option('--output_dir', '', 'subdirectory to save/log experiments in. Required.')
    cmd:option("--output_filename", "predictions.csv",
 	      "the name of the CSV file that will contain the model's predictions. Required")
-   cmd:option("--model_filename", "",
+   cmd:option("--model_filename", '',
 	      "the name of the file that contains the trained model. Required!")
    cmd:option("--num_data_to_test", -1, "The number of data points to test. If -1, defaults to the size of the test data.")
    cmd:text()
@@ -78,7 +78,8 @@ function create_predictions_string(model, testData)
          -- This call gets the index of the largest value in the outputs[j] list.
          local value, index = outputs[j]:topk(1, 1, true)
          prediction = assert(index[1]) -- index is a Tensor, this makes it a number
-         predictions_str = predictions_str .. j .. "," .. tostring(prediction) .. "\n"
+	 labelNum = i - 1 + j
+         predictions_str = predictions_str .. labelNum .. "," .. tostring(prediction) .. "\n"
       end
    end
    confusion:updateValids()
@@ -88,22 +89,23 @@ end
 
 
 -- Writes the given predictions string to the given output file.
-function write_predictions_csv(predictions_str, output_filename)
-   print('==> saving ' .. output_filename .. '...')
-   local f = io.open(output_filename, "w")
+function write_predictions_csv(predictions_str, output_dir, output_filename)
+   local output_filepath = paths.concat(output_dir, output_filename)
+   print('==> saving ' .. output_filepath .. '...')
+   local f = io.open(output_filepath, "w")
    f:write(predictions_str)
    f:close()
    print('==> file saved')
 end
 
 
-function run(size, model_filename, output_filename)
+function run(size, model_filename, output_dir, output_filename)
    -- NOTE: This are global on purpose, so this can be tested in the REPL.
    provider = load_provider(size, 'evaluate', false)
 
    model = torch.load(model_filename):cuda()
    local predictions_str = create_predictions_string(model, provider.testData)
-   write_predictions_csv(predictions_str, output_filename)
+   write_predictions_csv(predictions_str, output_dir, output_filename)
 end
 
 -- This is the function that runs the script. It checks the command line flags
@@ -111,11 +113,15 @@ end
 function main()
    local options = parse_commandline()
    if options.model_filename == '' then
-      print 'ERROR: You must set -model_filename'
+      print 'ERROR: You must set --model_filename'
+      exit()
+   end
+   if options.output_dir == '' then
+      print 'ERROR: You must set --output_dir'
       exit()
    end
    if options.output_filename == '' then
-      print 'ERROR: You must set -output_filename'
+      print 'ERROR: You must set --output_filename'
       exit()
    end
    if options.size ~= 'full' and options.size ~= 'small' and options.size ~= 'tiny' then
@@ -123,7 +129,7 @@ function main()
       exit()
    end
    
-   run(options.size, options.model_filename, options.output_filename)
+   run(options.size, options.model_filename, options.output_dir, options.output_filename)
 end
 
 
