@@ -137,16 +137,23 @@ function do_something_redux(src_image)
 end
 
 
+-- returns augmented data and labels
+-- If label_input is nil (unlabeled data), labels are not returned.
 function augmented_all(data_input, label_input)
-    local new_data= data_input:clone()
+    local new_data = data_input:clone()
 
     -- transforms all 
     for i=1,new_data:size(1) do
         new_data[i] =  do_something_redux(new_data[i])
     end
-    local stacked_data = stack_tensors(data_input , new_data)
-    local stacked_labels = stack_labels(label_input,label_input)
-    return stacked_data, stacked_labels
+    local stacked_data = stack_tensors(data_input, new_data):float()
+    local stacked_labels = nil
+    if label_input then
+       stacked_labels = stack_labels(label_input, label_input):float()
+       return stacked_data, stacked_labels
+    else
+       return stacked_data
+    end
 end
 
 

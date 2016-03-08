@@ -24,20 +24,18 @@ torch.setdefaulttensortype('torch.FloatTensor')
 function load_provider(size, providerType, augmented)
    DEBUG('==> loading data')
    local data_filename = ''
-   if providerType=='training' then
-      print("in")
+   if providerType == 'training' or providerType == 'unlabeled' then
       if augmented then
-         print("in 2")
          data_filename = 'provider.'..size..'.'..providerType..'.augmented.t7'
+	 DEBUG('loading augmented data file')
       else
-         print("training not augmented")
+         DEBUG("training not augmented")
          data_filename = 'provider.'..size..'.'..providerType..'.t7'
-         print (data_filename)
       end
    else
       data_filename = 'provider.'..size..'.'..providerType..'.t7'
    end
-   print(data_filename) 
+   DEBUG('Loading data from file: '..data_filename) 
    local data_file = io.open(data_filename, 'r')
    local provider = nil
    if data_file ~= nil then
@@ -47,11 +45,14 @@ function load_provider(size, providerType, augmented)
       DEBUG('downloading data...')
       provider = Provider(size, providerType, augmented)
       if augmented then
-         print(c.blue '==>' ..' augmenting data')
-         provider.trainData.data,provider.trainData.labels = augmented_all(provider.trainData.data,provider.trainData.labels)
+         DEBUG('Augmenting labeled data...')
+         provider.trainData.data, provider.trainData.labels = augmented_all(provider.trainData.data,
+									    provider.trainData.labels)
+	 if providerType == 'unlabeled' then
+	    DEBUG('Augmenting unlabeled data...')
+	    provider.extraData.data = augmented_all(provider.extraData.data)
+	 end
       end
-      provider.trainData.data = provider.trainData.data:float()
-      provider.trainData.labels = provider.trainData.labels:float()
       provider:normalize() -- TO DO 
       torch.save(data_filename, provider)
    end
@@ -150,7 +151,7 @@ function Provider:__init(size, providerType, augmented)
       trsize = 4000
       valsize = 1000
       testsize = 8000
-      extrasize = 100000
+      extrasize = 8000 -- TODO originally 100000, but it's too much!
    elseif size == 'small' then
       DEBUG('==> using reduced training data, for fast experiments')
       trsize = 1000
@@ -263,7 +264,7 @@ function Provider:normalize()
    collectgarbage()
    
    local trainData = self.trainData
-   print('Training data size: '..trainData:size())
+   DEBUG('Training data size: '..trainData:size())
    
    -- preprocess trainSet
    
