@@ -146,7 +146,7 @@ function augmented_all(data_input, label_input)
         new_data[i] =  do_something_redux(new_data[i])
     end
     local stacked_data = stack_tensors(data_input, new_data):float()
-    local stacked_labels = stacked_labels = stack_labels(label_input, label_input):float()
+    local stacked_labels = stack_labels(label_input, label_input):float()
     return stacked_data, stacked_labels
 end
 
