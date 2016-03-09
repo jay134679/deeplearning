@@ -43,14 +43,13 @@ function loadModel(modelDir, modelName)
    local modelFilename = paths.concat(modelDir, modelName)
    print('Loading model: '..modelFilename)
    local model = torch.load(modelFilename):cuda()
-   -- TODO clear the model and gc if the program OOMs in main memory (not gpu).
    model:evaluate()
    print 'model:'
    print(model)
    return model
 end
 
-function runModel(model, dataObj, layerNumber)
+function runModel(model, testData, layerNumber)
    print('Extracting model layer '..layerNumber)
    local layer = model:get(layerNumber)
    print(layer)
@@ -59,8 +58,8 @@ function runModel(model, dataObj, layerNumber)
    local batchSize = 25
    local layerOutputs = nil
    for i = 1, testData.data:size(1), batchSize do
-      xlua.progress(i+batchSize, dataObj.data:size(1))
-      local unusedOutputs = model:forward(dataObj.data:narrow(1, i, batchSize):cuda())   
+      xlua.progress(i+batchSize, testData.data:size(1))
+      local unusedOutputs = model:forward(testData.data:narrow(1, i, batchSize):cuda())   
       if layerOutputs then
 	 layerOutputs:cat(layer.output, 1)
       else
@@ -109,9 +108,9 @@ function main()
       exit()
    end
 
-   local dataObj = loadData(options.num_data)
+   local testData = loadData(options.num_data)
    local model = loadModel(options.model_dir, options.model_name)
-   local layerOutput = runModel(model, dataObj, options.layer_number)
+   local layerOutput = runModel(model, testData, options.layer_number)
    local tsneTensor = runTsne(layerOutput)
    saveImage(tsneTensor, options.model_dir, options.layer_number, options.num_data)
 end
