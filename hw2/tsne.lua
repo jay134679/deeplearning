@@ -33,10 +33,6 @@ function loadData(numData)
    testData.data = testData.data:narrow(1, 1, numData):cuda()
    testData.labels = testData.labels:narrow(1, 1, numData):float()
    
--- TODO selecting single channel...
---testData.data = testData.data:select(2, 1)
---testData.labels = testData.labels:select(2, 1)
-
    print('Test data after narrowing')
    print(testData)
 
@@ -47,22 +43,32 @@ function loadModel(modelDir, modelName)
    local modelFilename = paths.concat(modelDir, modelName)
    print('Loading model: '..modelFilename)
    local model = torch.load(modelFilename):cuda()
-   -- TODO clear the model and gc?
+   -- TODO clear the model and gc if the program OOMs in main memory (not gpu).
    model:evaluate()
    print 'model:'
    print(model)
    return model
 end
 
-function runModel(model, inputDataObj, layerNumber)
-   print('Running forward pass..')
-   local _ = model:forward(inputDataObj.data):cuda()
+function runModel(model, dataObj, layerNumber)
+   print('Extracting model layer '..layerNumber)
    local layer = model:get(layerNumber)
-   print('Extracting model layer '..layerNumber..': ')
    print(layer)
-   local layerOutput = layer.output
+   print('Running forward pass...')
+   -- Batching data, otherwise it OOMs.
+   local batchSize = 25
+   local layerOutputs = nil
+   for i = 1, testData.data:size(1), batchSize do
+      xlua.progress(i+batchSize, dataObj.data:size(1))
+      local unusedOutputs = model:forward(dataObj.data:narrow(1, i, batchSize):cuda())   
+      if layerOutputs then
+	 layerOutputs:cat(layer.output, 1)
+      else
+	 layerOutputs = torch.DoubleTensor(layer.output:size()):copy(layer.output)
+      end
+   end
    print('Layer output dimensions:')
-   print(layerOutput:size())
+   print(layerOutputs:size())
    return layerOutput
 end
 
