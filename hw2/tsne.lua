@@ -75,7 +75,7 @@ function runTsne(testData, layerOutput)
    print('Preparing data for t-SNE...')
    local x = torch.DoubleTensor(layerOutput:size()):copy(layerOutput)
    -- Flatten data
-   x:resize(x:size(1), x:size(2) * x:size(3) * x:size(4))
+   x:resize(x:size(1), x[1]:nElement())
    print('Flattened data dimensions:')
    print(x:size())
 
