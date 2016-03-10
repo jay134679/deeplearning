@@ -283,20 +283,20 @@ function Provider:normalize()
    
    -- preprocess either validate or test, depending on the providerType
    if self.providerType == 'training' or self.providerType == 'unlabeled' then
-      DEBUG('Normalizing validation data of size: '..valData:size())
+      DEBUG('Normalizing validation data of size: '..self.valData:size())
       -- validation
       transformRgbToYuv(self.valData, normalization)
       normalizeUVMeanAndStd(self.valData, mean_u, std_u, mean_v, std_v)
       
       if self.providerType == 'unlabeled' then
-         DEBUG('Normalizing unlabeled data of size: '..extraData:size())
+         DEBUG('Normalizing unlabeled data of size: '..self.extraData:size())
 	 -- unlabeled
 	 transformRgbToYuv(self.extraData, normalization)
 	 normalizeUVMeanAndStd(self.extraData, mean_u, std_u, mean_v, std_v)
       end
    elseif self.providerType == 'evaluate' then
       -- testing
-      DEBUG('Normalizing test data of size: '..testData:size())
+      DEBUG('Normalizing test data of size: '..self.testData:size())
       transformRgbToYuv(self.testData, normalization)
       normalizeUVMeanAndStd(self.testData, mean_u, std_u, mean_v, std_v)
    end
