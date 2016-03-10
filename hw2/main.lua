@@ -30,7 +30,7 @@ function parse_cmdline()
       -a, --augmented                               defaults to false
       --pre_train_res         (default "")          file for pre train
       --usePseudoLabels                             If true, use pseudo label training method.
-      --unlabeledBatchSize    (default 128)         Batch size for pseudo-labeled unlabeled data.
+      --unlabeledBatchSize    (default 64)          Batch size for pseudo-labeled unlabeled data.
       --maxPseudoLossWeight   (default 3)           The maximum weight given to the loss of the pseudo-labeled data .
       --pseudoStartingEpoch   (default 100)         pseudo label loss weight is zero until this epoch. Adjust according to max_epoch.
       --pseudoEndingEpoch     (default 250)         psudeo label loss max weight realized at this epoch. Adjust according to max_epoch.
@@ -90,12 +90,12 @@ function main()
       reshaped = torch.reshape(centroids, 64,3,3,3)
       model:get(3):get(1).weight:copy(reshaped)]]
    if opt.usePseudoLabels then
-      provider = load_provider(opt.size, 'unlabeled', opt.augmented)
+      provider = load_provider(opt.size, 'unlabeled', opt.augmented, true)
       model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
       kMeansPreTraining(opt.pre_train_res, model)
       pseudo_train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
    else
-      provider = load_provider(opt.size, 'training', opt.augmented)
+      provider = load_provider(opt.size, 'training', opt.augmented, true)
       model, custom_model_layer_index = load_model(opt.model, opt.no_cuda)
       kMeansPreTraining(opt.pre_train_res, model)
       train_validate_max_epochs(opt, provider, model, custom_model_layer_index, experiment_dir)
