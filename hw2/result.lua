@@ -16,14 +16,12 @@
 -- Example 1: Load model in results/mymodel.net, and write the output to
 -- results/predictions.csv:
 --
--- th result.lua -model_filename results/mymodel.net
+-- th result.lua --model_filename results/mymodel.net
 
 -- Example 2: Only load the 'small' test data test, load model in
 -- results/mymodel.net, and write the output to predictions.csv:
 --
--- th result.lua -size small -model_filename results/mymodel.net -output_filename results/myresults.log
-
--- TODO give --model_filename the name of our final model as a defualt.
+-- th result.lua --size small --model_filename results/mymodel.net
 
 require 'nn'
 require 'optim'
@@ -42,10 +40,10 @@ function parse_commandline()
    cmd:text()
    cmd:text("Options:")
    cmd:option('--size', 'full', 'how many samples do we load from test data: tiny | small | full. Required.')
-   cmd:option('--output_dir', '', 'subdirectory to save/log experiments in. Required.')
+   cmd:option('--output_dir', '.', 'subdirectory to save/log experiments in. Required.')
    cmd:option("--output_filename", "predictions.csv",
 	      "the name of the CSV file that will contain the model's predictions. Required")
-   cmd:option("--model_filename", '',
+   cmd:option("--model_filename", 'model.net.2',
 	      "the name of the file that contains the trained model. Required!")
    cmd:option("--num_data_to_test", -1, "The number of data points to test. If -1, defaults to the size of the test data.")
    cmd:text()
