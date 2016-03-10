@@ -15,13 +15,14 @@ function parse_cmdline()
       --model_dir      (default "")          The directory with the model file to load, and where the output file will go.
       --model_name     (default "model.net") The filename of the model file.
       --num_data       (default 1000)        The number of data points to use.
+      --normalize                            If true, normalize the data, including rgb->yuv. defaults to true.
    ]]
    return options
 end
 
 
-function loadData(numData)
-   local provider = load_provider('full', 'evaluate', false)
+function loadData(numData, doNormalize)
+   local provider = load_provider('full', 'evaluate', false, doNormalize)
 
    local testData = provider.testData
    -- don't normalize, tnse does that already
@@ -31,7 +32,6 @@ function loadData(numData)
    
    testData.size = function() return numData end
    testData.data = testData.data:narrow(1, 1, numData):cuda()
-   testData.labels = testData.labels:narrow(1, 1, numData):float()
    
    print('Test data after narrowing')
    print(testData)
@@ -61,21 +61,21 @@ function runModel(model, testData, layerNumber)
       xlua.progress(i+batchSize, testData.data:size(1))
       local unusedOutputs = model:forward(testData.data:narrow(1, i, batchSize):cuda())   
       if layerOutputs then
-	 layerOutputs:cat(layer.output, 1)
+	 layerOutputs = layerOutputs:cat(layer.output:double(), 1)
       else
-	 layerOutputs = torch.DoubleTensor(layer.output:size()):copy(layer.output)
+	 layerOutputs = torch.DoubleTensor(layer.output:size()):copy(layer.output:float())
       end
    end
    print('Layer output dimensions:')
    print(layerOutputs:size())
-   return layerOutput
+   return layerOutputs
 end
 
-function runTsne(layerOutput)
+function runTsne(testData, layerOutput)
    print('Preparing data for t-SNE...')
    local x = torch.DoubleTensor(layerOutput:size()):copy(layerOutput)
    -- Flatten data
-   x:resize(x:size(1), x:size(2) * x:size(3) * x:size(4))
+   x:resize(x:size(1), x[1]:nElement())
    print('Flattened data dimensions:')
    print(x:size())
 
@@ -88,14 +88,14 @@ function runTsne(layerOutput)
    print('t-SNE complete!')
    im_size = 4096
    print('Calling draw_image_map...')
-   local map_im = m.draw_image_map(mapped_x1, 
-                                   x:resize(layerOutput:size(1), layerOutput:size(2), layerOutput:size(3), layerOutput:size(4)),
-                                   im_size, 0, true)
+   local map_im = m.draw_image_map(mapped_x1, testData.data, im_size, 0, true)
    return map_im
 end
    
-function saveImage(tsneTensor, outputDir, layerNumber, numData)
-   local outputFilename = 'tnse.layer'..layerNumber..'.ndata'..numData..'.t7'
+function saveImage(tsneTensor, outputDir, layerNumber, numData, normalize)
+   normStr = ''
+   if normalize then normStr = '.norm' end
+   local outputFilename = 'tnse.layer'..layerNumber..'.ndata'..numData..normStr..'.t7'
    local outputPath = paths.concat(outputDir, outputFilename)
    print('Saving file: '..outputPath)
    torch.save(outputPath, tsneTensor)
@@ -103,16 +103,17 @@ end
 
 function main()
    local options = parse_cmdline()
+   print(options)
    if options.model_dir == '' then
       print 'ERROR: You must set --model_dir'
       exit()
    end
 
-   local testData = loadData(options.num_data)
+   local testData = loadData(options.num_data, options.normalize)
    local model = loadModel(options.model_dir, options.model_name)
    local layerOutput = runModel(model, testData, options.layer_number)
-   local tsneTensor = runTsne(layerOutput)
-   saveImage(tsneTensor, options.model_dir, options.layer_number, options.num_data)
+   local tsneTensor = runTsne(testData, layerOutput)
+   saveImage(tsneTensor, options.model_dir, options.layer_number, options.num_data, options.normalize)
 end
 
 main()

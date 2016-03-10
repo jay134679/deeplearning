@@ -21,7 +21,7 @@ torch.setdefaulttensortype('torch.FloatTensor')
 -- training: trainData, valData
 -- unlabeled: trainData, extraData, valData
 -- evaluate, trainData, testData
-function load_provider(size, providerType, augmented)
+function load_provider(size, providerType, augmented, normalize)
    DEBUG('==> loading data')
    local data_filename = ''
    if providerType == 'training' or providerType == 'unlabeled' then
@@ -49,8 +49,10 @@ function load_provider(size, providerType, augmented)
          provider.trainData.data, provider.trainData.labels = augmented_all(provider.trainData.data,
 									    provider.trainData.labels)
       end
-      provider:normalize() -- TO DO 
       torch.save(data_filename, provider)
+   end
+   if normalize then
+      provider:normalize()
    end
    return provider
 end
@@ -256,11 +258,11 @@ function Provider:normalize()
    ----------------------------------------------------------------------
    -- preprocess/normalize train/val sets
    --
-   DEBUG('<trainer> preprocessing data (color space + normalization)')
+   DEBUG('Preprocessing data (color space + normalization)')
    collectgarbage()
    
    local trainData = self.trainData
-   DEBUG('Training data size: '..trainData:size())
+   DEBUG('Normalizing training data of size: '..trainData:size())
    
    -- preprocess trainSet
    
@@ -281,17 +283,20 @@ function Provider:normalize()
    
    -- preprocess either validate or test, depending on the providerType
    if self.providerType == 'training' or self.providerType == 'unlabeled' then
+      DEBUG('Normalizing validation data of size: '..valData:size())
       -- validation
       transformRgbToYuv(self.valData, normalization)
       normalizeUVMeanAndStd(self.valData, mean_u, std_u, mean_v, std_v)
       
       if self.providerType == 'unlabeled' then
+         DEBUG('Normalizing unlabeled data of size: '..extraData:size())
 	 -- unlabeled
 	 transformRgbToYuv(self.extraData, normalization)
 	 normalizeUVMeanAndStd(self.extraData, mean_u, std_u, mean_v, std_v)
       end
    elseif self.providerType == 'evaluate' then
       -- testing
+      DEBUG('Normalizing test data of size: '..testData:size())
       transformRgbToYuv(self.testData, normalization)
       normalizeUVMeanAndStd(self.testData, mean_u, std_u, mean_v, std_v)
    end

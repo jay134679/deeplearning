@@ -155,7 +155,7 @@ function main()
    -- DEBUG function now callable
    
    --save_input_options(opt, experiment_dir)
-   provider = load_provider(opt.size, 'unlabeled',opt.augmented)
+   provider = load_provider(opt.size, 'unlabeled',opt.augmented, true)
    -- run throguh sobel filter
    print(provider.extraData.data:size())
    --chosen_patches = extract_patches_batch(provider.extraData.data[{{1,10},{},{},{}}], opt.kmeans_threshold) 
