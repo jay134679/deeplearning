@@ -221,13 +221,18 @@ function run_test()
     reset_state(state_test)
     g_disable_dropout(model.rnns)
     local perp = 0
-    local len =  state_test.data:size(1)
+    local len = 10 --TODO state_test.data:size(1)
     
     -- no batching here
     g_replace_table(model.s[0], model.start_s)
     for i = 1, (len - 1) do
-        local x = state_test.data[i]
-        local y = state_test.data[i + 1]
+       local x = state_test.data[i]
+       print('iter '..i)
+       print('x') -- TODO
+       print(x) -- TODO
+       local y = state_test.data[i + 1]
+       print('y') -- TODO
+       print(y) -- TODO
         perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]}))
         perp = perp + perp_tmp[1]
         g_replace_table(model.s[0], model.s[1])
@@ -270,8 +275,34 @@ function read_query()
   return line
 end
 
--- TODO modify communication_loop.lua so that it returns a list of vocab numbers and the number of words to generate
-function run_sentence_gen()
+function run_sentence_gen(sentence_length, word_idxs)
+    reset_state(state_test)  -- TODO ?
+    g_disable_dropout(model.rnns) -- TODO ?
+    
+    local len = word_idxs:size(1) -- TODO 
+    local x = word_idxs[len-1]
+    local y = word_idxs[len]
+
+    local predicted_word_idxs = {}
+    
+    -- no batching here
+    g_replace_table(model.s[0], model.start_s)
+    for i = 1, sentence_length do
+       perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]}))
+	-- TODO change model to return predictions instead of perplexity
+       -- TODO sample from predictions?
+       predicted_word_idx = 1 -- TODO arbitrary number until we predict something real.
+       predicted_word_idxs[i] = predicted_word_idx
+       x = y
+       y = torch.Tensor(params.batch_size):fill(predicted_word_idx)
+       g_replace_table(model.s[0], model.s[1])
+    end
+    g_enable_dropout(model.rnns) -- TODO ?
+    return predicted_word_idxs
+end
+
+
+function sentence_gen_repl()
    local vocab_idx_map = invert_vocab_map()
    
     while true do
@@ -290,13 +321,22 @@ function run_sentence_gen()
 	 end
       else
 	 local sentence_length = tonumber(line[1])
-	 local vocab_indices = {}
+	 local input_idxs = torch.zeros(#line - 1)
 	 for i = 2,#line do
-	    print(line[i]..': '..ptb.vocab_map[line[i]]) -- TODO
-	    vocab_indices[i-1] = ptb.vocab_map[line[i]]
+--	    print(line[i]..': '..ptb.vocab_map[line[i]])
+	    input_idxs[i-1] = ptb.vocab_map[line[i]]
 	 end
-	 -- TODO call the classifier sentence_length number of times.
-	 -- TODO 
+	 -- NOTE this resizes the input like data.testdataset does.
+	 input_idxs = input_idxs:resize(input_idxs:size(1), 1):expand(input_idxs:size(1), params.batch_size)
+	 predicted_word_idxs = run_sentence_gen(sentence_length, input_idxs)
+	 all_words_str = ""
+	 for i = 2,#line do
+	    all_words_str = all_words_str..line[i].." "
+	 end
+	 for i = 1,#predicted_word_idxs do
+	    all_words_str = all_words_str..vocab_idx_map[predicted_word_idxs[i]].." "
+	 end
+	 print(all_words_str)
       end
    end
 end
@@ -371,6 +411,6 @@ setup()
 --         end
 --     end
 -- end
---TODO run_test()
-run_sentence_gen()
+--run_test()
+sentence_gen_repl()
 print("Training is over.")
