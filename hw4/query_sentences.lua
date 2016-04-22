@@ -77,12 +77,17 @@ local function lstm(x, prev_c, prev_h)
 end
 
 function create_network()
-    local x                  = nn.Identity()()
-    local y                  = nn.Identity()()
-    local prev_s             = nn.Identity()()
+    local x                  = nn.Identity()() -- input word
+    local y                  = nn.Identity()() -- word you're trying to predict from x.
+    -- prev_c and prev_h are stored in prev_s
+    local prev_s             = nn.Identity()() -- previous state
+    -- rrn_size -> word embedding size
     local i                  = {[0] = nn.LookupTable(params.vocab_size,
-                                                    params.rnn_size)(x)}
+						     params.rnn_size)(x)}
+    -- next state of the model
     local next_s             = {}
+    -- split c and h
+    -- TODO what does split do?
     local split              = {prev_s:split(2 * params.layers)}
     for layer_idx = 1, params.layers do
         local prev_c         = split[2 * layer_idx - 1]
@@ -98,7 +103,7 @@ function create_network()
     local pred               = nn.LogSoftMax()(h2y(dropped))
     local err                = nn.ClassNLLCriterion()({pred, y})
     local module             = nn.gModule({x, y, prev_s},
-                                      {err, nn.Identity()(next_s)})
+                                      {err, nn.Identity()(next_s), pred}) -- TODO added pred here
     -- initialize weights
     module:getParameters():uniform(-params.init_weight, params.init_weight)
     return transfer_data(module)
@@ -156,7 +161,7 @@ function fp(state)
         local x = state.data[state.pos]
         local y = state.data[state.pos + 1]
         local s = model.s[i - 1]
-        model.err[i], model.s[i] = unpack(model.rnns[i]:forward({x, y, s}))
+        model.err[i], model.s[i], _ = unpack(model.rnns[i]:forward({x, y, s})) -- TODO added _ for pred
         state.pos = state.pos + 1
     end
     
@@ -179,9 +184,10 @@ function bp(state)
         local s = model.s[i - 1]
         -- Why 1?
         local derr = transfer_data(torch.ones(1))
+	local dummy_pred_grad = transfer_data(torch.zeros(params.batch_size, params.vocab_size)) -- TODO added dummy_pred_grad. should it be sequence length instead of batch size?
         -- tmp stores the ds
         local tmp = model.rnns[i]:backward({x, y, s},
-                                           {derr, model.ds})[3]
+                                           {derr, model.ds, dummy_pred_grad})[3]
         -- remember (to, from)
         g_replace_table(model.ds, tmp)
     end
@@ -233,7 +239,7 @@ function run_test()
        local y = state_test.data[i + 1]
        print('y') -- TODO
        print(y) -- TODO
-        perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]}))
+        perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]})) -- TODO add pred
         perp = perp + perp_tmp[1]
         g_replace_table(model.s[0], model.s[1])
     end
@@ -276,29 +282,33 @@ function read_query()
 end
 
 function run_sentence_gen(sentence_length, word_idxs)
-    reset_state(state_test)  -- TODO ?
-    g_disable_dropout(model.rnns) -- TODO ?
-    
-    local len = word_idxs:size(1) -- TODO 
-    local x = word_idxs[len-1]
-    local y = word_idxs[len]
+    reset_state(state_test)
+    g_disable_dropout(model.rnns)
 
-    local predicted_word_idxs = {}
-    
-    -- no batching here
+    -- put ones where there are no entries. this is equivalent to guessing the first vocab word.
+    local sentence_idxs = torch.ones(word_idxs:size(1)+sentence_length)
+    for i = 1, word_idxs:size(1) do
+       sentence_idxs[i] = word_idxs[i]
+    end
+    -- Resize and replicate the inputs to match the batch size like data.testdataset does.
+    local sentence_inputs = sentence_idxs:resize(sentence_idxs:size(1), 1):expand(sentence_idxs:size(1), params.batch_size)
+       
     g_replace_table(model.s[0], model.start_s)
-    for i = 1, sentence_length do
-       perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]}))
-	-- TODO change model to return predictions instead of perplexity
-       -- TODO sample from predictions?
-       predicted_word_idx = 1 -- TODO arbitrary number until we predict something real.
-       predicted_word_idxs[i] = predicted_word_idx
-       x = y
-       y = torch.Tensor(params.batch_size):fill(predicted_word_idx)
+    for i = 1, sentence_inputs:size(1)-1 do
+       local x = sentence_inputs[i]
+       local y = sentence_inputs[i+1]
+       
+       _, model.s[1], log_pred = unpack(model.rnns[1]:forward({x, y, model.s[0]})) -- TODO added log_pred
+       -- only save the word if it's one of the newly predicted ones
+       if i >= word_idxs:size(1) then
+	  -- TODO sample from predictions?
+	  local _, pred_idx = torch.max(log_pred, 2) -- TODO is 2 the right dimension?
+	  sentence_inputs[i+1] = pred_idx
+       end
        g_replace_table(model.s[0], model.s[1])
     end
-    g_enable_dropout(model.rnns) -- TODO ?
-    return predicted_word_idxs
+    g_enable_dropout(model.rnns)
+    return sentence_idxs
 end
 
 
@@ -323,18 +333,12 @@ function sentence_gen_repl()
 	 local sentence_length = tonumber(line[1])
 	 local input_idxs = torch.zeros(#line - 1)
 	 for i = 2,#line do
---	    print(line[i]..': '..ptb.vocab_map[line[i]])
 	    input_idxs[i-1] = ptb.vocab_map[line[i]]
 	 end
-	 -- NOTE this resizes the input like data.testdataset does.
-	 input_idxs = input_idxs:resize(input_idxs:size(1), 1):expand(input_idxs:size(1), params.batch_size)
 	 predicted_word_idxs = run_sentence_gen(sentence_length, input_idxs)
 	 all_words_str = ""
-	 for i = 2,#line do
-	    all_words_str = all_words_str..line[i].." "
-	 end
-	 for i = 1,#predicted_word_idxs do
-	    all_words_str = all_words_str..vocab_idx_map[predicted_word_idxs[i]].." "
+	 for i = 1,predicted_word_idxs:size(1) do
+	    all_words_str = all_words_str..vocab_idx_map[predicted_word_idxs[i][1]].." "
 	 end
 	 print(all_words_str)
       end
