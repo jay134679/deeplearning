@@ -380,6 +380,10 @@ function train_model(experiment_dir)
    epoch_size = torch.floor(state_train.data:size(1) / params.seq_length)
    
    while epoch < params.max_epoch do  
+      if step % 5 == 0 then
+         DEBUG('step: '..step)
+         DEBUG('epoch: '..epoch)
+      end
       -- take one step forward
       perp = fp(state_train)
       if perps == nil then
