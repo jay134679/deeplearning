@@ -31,7 +31,7 @@ function parse_cmdline()
       --exp_name              (default "")          name of the current experiment. optional.
       --model_file            (default "")          in test mode, use this file as the model. all other params are for 'train'.
       --model                 (default lstm)        model name to train.
-      --model_save_freq       (default 20)          save the model every x epochs.
+      --model_save_freq       (default 50)          save the model every x steps.
       --results_dir           (default "results")   directory to save results
       --debug_log_filename    (default "debug.log")  filename of debugging output
       -b,--batch_size         (default 20)          minibatch size
@@ -402,7 +402,7 @@ function train_model(experiment_dir)
       epoch = step / epoch_size
 
       -- display details at some interval
-      if step % torch.round(epoch_size / 10) == 10 then
+      if step % params.model_save_freq == 0 then
 	 wps = torch.floor(total_cases / torch.toc(start_time))
 	 since_beginning = g_d(torch.toc(beginning_time) / 60)
 	 DEBUG('epoch = ' .. g_f3(epoch) ..
