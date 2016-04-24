@@ -23,22 +23,32 @@ require 'nn'
 require('nngraph')
 require('base')
 ptb = require('data')
+require 'exp_setup'
 
--- Trains 1 epoch and gives validation set ~182 perplexity (CPU).
-local params = {
-                batch_size=20, -- minibatch
-                seq_length=20, -- unroll length
-                layers=2,
-                decay=2,
-                rnn_size=200, -- hidden unit size
-                dropout=0, 
-                init_weight=0.1, -- random weight initialization limits
-                lr=1, --learning rate
-                vocab_size=10000, -- limit on the vocabulary size
-                max_epoch=4,  -- when to start decaying learning rate
-                max_max_epoch=13, -- TODO 1, -- final epoch
-                max_grad_norm=5 -- clip when gradients exceed this norm value
-               }
+function parse_cmdline()
+   local opt = lapp[[
+      --mode                  (default test)        either 'train' or 'test'. if 'test', specify the model_file.
+      --exp_name              (default "")          name of the current experiment. optional.
+      --model_file            (default "")          in test mode, use this file as the model. all other params are for 'train'.
+      --model                 (default lstm)        model name to train.
+      --model_save_freq       (default 20)          save the model every x epochs.
+      --results_dir           (default "results")   directory to save results
+      --debug_log_filename    (default "debug.log")  filename of debugging output
+      -b,--batch_size         (default 20)          minibatch size
+      --seq_length            (default 20)          unroll length
+      --layers                (default 2)           TODO ?
+      --decay                 (default 2)           TODO ?
+      --rnn_size              (default 200)         hidden unit size
+      --dropout               (default 0) 
+      --init_weight           (default 0.1)         random weight initialization limits
+      --lr                    (default 1)           learning rate
+      --vocab_size            (default 10000)       limit on the vocabulary size
+      --decay_epoch           (default 4)           when to start decaying learning rate
+      --max_epoch             (default 13)          final epoch
+      --max_grad_norm         (default 5)           clip when gradients exceed this norm value
+   ]]
+   return opt
+end
 
 function transfer_data(x)
     if gpu then
@@ -109,8 +119,8 @@ function create_network()
     return transfer_data(module)
 end
 
-function setup()
-    print("Creating a RNN LSTM network.")
+function build_model()
+    DEBUG("Creating a RNN LSTM network.")
     local core_network = create_network()
     paramx, paramdx = core_network:getParameters()
     model.s = {}
@@ -219,33 +229,34 @@ function run_valid()
     for i = 1, len do
         perp = perp + fp(state_valid)
     end
-    print("Validation set perplexity : " .. g_f3(torch.exp(perp / len)))
+    DEBUG("Validation set perplexity : " .. g_f3(torch.exp(perp / len)))
     g_enable_dropout(model.rnns)
 end
 
-function run_test()
-    reset_state(state_test)
-    g_disable_dropout(model.rnns)
-    local perp = 0
-    local len = 10 --TODO state_test.data:size(1)
+-- TODO delete
+-- function run_test()
+--     reset_state(state_test)
+--     g_disable_dropout(model.rnns)
+--     local perp = 0
+--     local len = 10 --TODO state_test.data:size(1)
     
-    -- no batching here
-    g_replace_table(model.s[0], model.start_s)
-    for i = 1, (len - 1) do
-       local x = state_test.data[i]
-       print('iter '..i)
-       print('x') -- TODO
-       print(x) -- TODO
-       local y = state_test.data[i + 1]
-       print('y') -- TODO
-       print(y) -- TODO
-        perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]})) -- TODO add pred
-        perp = perp + perp_tmp[1]
-        g_replace_table(model.s[0], model.s[1])
-    end
-    print("Test set perplexity : " .. g_f3(torch.exp(perp / (len - 1))))
-    g_enable_dropout(model.rnns)
-end
+--     -- no batching here
+--     g_replace_table(model.s[0], model.start_s)
+--     for i = 1, (len - 1) do
+--        local x = state_test.data[i]
+--        DEBUG('iter '..i)
+--        DEBUG('x') -- TODO
+--        DEBUG(x) -- TODO
+--        local y = state_test.data[i + 1]
+--        DEBUG('y') -- TODO
+--        DEBUG(y) -- TODO
+--         perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]})) -- TODO add pred
+--         perp = perp + perp_tmp[1]
+--         g_replace_table(model.s[0], model.s[1])
+--     end
+--     DEBUG("Test set perplexity : " .. g_f3(torch.exp(perp / (len - 1))))
+--     g_enable_dropout(model.rnns)
+-- end
 
 
 -- invert the ptb.vocab_map
@@ -282,33 +293,37 @@ function read_query()
 end
 
 function run_sentence_gen(sentence_length, word_idxs)
-    reset_state(state_test)
-    g_disable_dropout(model.rnns)
+   -- reset model
+   for d = 1, 2 * params.layers do
+      model.start_s[d]:zero()
+   end
 
-    -- put ones where there are no entries. this is equivalent to guessing the first vocab word.
-    local sentence_idxs = torch.ones(word_idxs:size(1)+sentence_length)
-    for i = 1, word_idxs:size(1) do
-       sentence_idxs[i] = word_idxs[i]
-    end
-    -- Resize and replicate the inputs to match the batch size like data.testdataset does.
-    local sentence_inputs = sentence_idxs:resize(sentence_idxs:size(1), 1):expand(sentence_idxs:size(1), params.batch_size)
-       
-    g_replace_table(model.s[0], model.start_s)
-    for i = 1, sentence_inputs:size(1)-1 do
-       local x = sentence_inputs[i]
-       local y = sentence_inputs[i+1]
-       
-       _, model.s[1], log_pred = unpack(model.rnns[1]:forward({x, y, model.s[0]})) -- TODO added log_pred
-       -- only save the word if it's one of the newly predicted ones
-       if i >= word_idxs:size(1) then
-	  -- TODO sample from predictions?
-	  local _, pred_idx = torch.max(log_pred, 2) -- TODO is 2 the right dimension?
-	  sentence_inputs[i+1] = pred_idx
-       end
-       g_replace_table(model.s[0], model.s[1])
-    end
-    g_enable_dropout(model.rnns)
-    return sentence_idxs
+   g_disable_dropout(model.rnns)
+
+   -- put ones where there are no entries. this is equivalent to guessing the first vocab word.
+   local sentence_idxs = torch.ones(word_idxs:size(1)+sentence_length)
+   for i = 1, word_idxs:size(1) do
+      sentence_idxs[i] = word_idxs[i]
+   end
+   -- Resize and replicate the inputs to match the batch size like data.testdataset does.
+   local sentence_inputs = sentence_idxs:resize(sentence_idxs:size(1), 1):expand(sentence_idxs:size(1), params.batch_size)
+   
+   g_replace_table(model.s[0], model.start_s)
+   for i = 1, sentence_inputs:size(1)-1 do
+      local x = sentence_inputs[i]
+      local y = sentence_inputs[i+1]
+      
+      _, model.s[1], log_pred = unpack(model.rnns[1]:forward({x, y, model.s[0]})) -- TODO added log_pred
+      -- only save the word if it's one of the newly predicted ones
+      if i >= word_idxs:size(1) then
+	 -- TODO sample from predictions?
+	 local _, pred_idx = torch.max(log_pred, 2) -- TODO is 2 the right dimension?
+	 sentence_inputs[i+1] = pred_idx
+      end
+      g_replace_table(model.s[0], model.s[1])
+   end
+   g_enable_dropout(model.rnns)
+   return sentence_idxs
 end
 
 
@@ -316,18 +331,18 @@ function sentence_gen_repl()
    local vocab_idx_map = invert_vocab_map()
    
     while true do
-      print("Query: len word1 word2 etc")
+      DEBUG("Query: len word1 word2 etc")
       local ok, line = pcall(read_query)
       if not ok then
 	 if line.code == "EOF" then
 	    break -- end loop
 	 elseif line.code == "vocab" then
-	    print("Word not in vocabulary: ", line.word)
+	    DEBUG("Word not in vocabulary: ", line.word) -- TODO vocab is empty
 	 elseif line.code == "init" then
-	    print("Start with a number")
+	    DEBUG("Start with a number")
 	 else
-	    print(line)
-	    print("Failed, try again")
+	    DEBUG(line)
+	    DEBUG("Failed, try again")
 	 end
       else
 	 local sentence_length = tonumber(line[1])
@@ -340,81 +355,96 @@ function sentence_gen_repl()
 	 for i = 1,predicted_word_idxs:size(1) do
 	    all_words_str = all_words_str..vocab_idx_map[predicted_word_idxs[i][1]].." "
 	 end
-	 print(all_words_str)
+	 DEBUG(all_words_str)
       end
    end
 end
 
+function train_model(experiment_dir)   
+   DEBUG("Network parameters:")
+   DEBUG(params)
+   
+   local states = {state_train, state_valid}--, state_test}
+   for _, state in pairs(states) do
+      reset_state(state)
+   end
+   
+   step = 0 -- How do step, epoch, and epoch size relate?
+   epoch = 0 -- TODO epoch is fractional?
+   total_cases = 0
+   beginning_time = torch.tic()
+   start_time = torch.tic()
 
+   DEBUG("Starting training.")
+   words_per_step = params.seq_length * params.batch_size
+   epoch_size = torch.floor(state_train.data:size(1) / params.seq_length)
+   
+   while epoch < params.max_epoch do  
+      -- take one step forward
+      perp = fp(state_train)
+      if perps == nil then
+	 perps = torch.zeros(epoch_size):add(perp)
+      end
+      perps[step % epoch_size + 1] = perp
+      step = step + 1
+      
+      -- gradient over the step
+      bp(state_train)
+      
+      -- words_per_step covered in one step
+      total_cases = total_cases + params.seq_length * params.batch_size
+      epoch = step / epoch_size
+
+      -- display details at some interval
+      if step % torch.round(epoch_size / 10) == 10 then
+	 wps = torch.floor(total_cases / torch.toc(start_time))
+	 since_beginning = g_d(torch.toc(beginning_time) / 60)
+	 DEBUG('epoch = ' .. g_f3(epoch) ..
+		  ', train perp. = ' .. g_f3(torch.exp(perps:mean())) ..
+		  ', wps = ' .. wps ..
+		  ', dw:norm() = ' .. g_f3(model.norm_dw) ..
+		  ', lr = ' ..  g_f3(params.lr) ..
+		  ', since beginning = ' .. since_beginning .. ' mins.')
+	 local filename = paths.concat(experiment_dir, 'model.net')
+	 DEBUG('==> saving model to '..filename)
+	 torch.save(filename, model)
+      end
+      
+      -- run when epoch done
+      if step % epoch_size == 0 then
+	 run_valid()
+	 if epoch > params.decay_epoch then
+            params.lr = params.lr / params.decay
+	 end
+      end
+   end
+   DEBUG("Training is over.")
+end
+
+-- main code starts here
+
+params = parse_cmdline()
+experiment_dir = setup_experiment(params)
+-- NOTE: the DEBUG() function now callable
 
 if gpu then
     g_init_gpu(arg)
 end
 
 -- get data in batches
+-- Training data is loaded in both train and test mode, since it loads the vocab map.
 state_train = {data=transfer_data(ptb.traindataset(params.batch_size))}
 state_valid =  {data=transfer_data(ptb.validdataset(params.batch_size))}
-state_test =  {data=transfer_data(ptb.testdataset(params.batch_size))}
+--TODOstate_test =  {data=transfer_data(ptb.testdataset(params.batch_size))}
 
-print("Network parameters:")
-print(params)
-
-local states = {state_train, state_valid, state_test}
-for _, state in pairs(states) do
-    reset_state(state)
+if params.mode == 'test' then
+   DEBUG('TEST MODE')
+   DEBUG('Loading model file from '..params.model_file)
+   model = torch.load(params.model_file)
+else
+   DEBUG('TRAIN MODE')
+   build_model()
+   train_model(experiment_dir)
 end
 
--- Construct the model
-setup()
-
--- TODO training is slow town
--- step = 0
--- epoch = 0
--- total_cases = 0
--- beginning_time = torch.tic()
--- start_time = torch.tic()
-
--- print("Starting training.")
--- words_per_step = params.seq_length * params.batch_size
--- epoch_size = torch.floor(state_train.data:size(1) / params.seq_length)
-
--- while epoch < params.max_max_epoch do
-
---     -- take one step forward
---     perp = fp(state_train)
---     if perps == nil then
---         perps = torch.zeros(epoch_size):add(perp)
---     end
---     perps[step % epoch_size + 1] = perp
---     step = step + 1
-    
---     -- gradient over the step
---     bp(state_train)
-    
---     -- words_per_step covered in one step
---     total_cases = total_cases + params.seq_length * params.batch_size
---     epoch = step / epoch_size
-    
---     -- display details at some interval
---     if step % torch.round(epoch_size / 10) == 10 then
---         wps = torch.floor(total_cases / torch.toc(start_time))
---         since_beginning = g_d(torch.toc(beginning_time) / 60)
---         print('epoch = ' .. g_f3(epoch) ..
---              ', train perp. = ' .. g_f3(torch.exp(perps:mean())) ..
---              ', wps = ' .. wps ..
---              ', dw:norm() = ' .. g_f3(model.norm_dw) ..
---              ', lr = ' ..  g_f3(params.lr) ..
---              ', since beginning = ' .. since_beginning .. ' mins.')
---     end
-    
---     -- run when epoch done
---     if step % epoch_size == 0 then
---         run_valid()
---         if epoch > params.max_epoch then
---             params.lr = params.lr / params.decay
---         end
---     end
--- end
---run_test()
 sentence_gen_repl()
-print("Training is over.")
