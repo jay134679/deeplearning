@@ -1,4 +1,4 @@
--- query_sentences.lua
+-- result.lua
 -- Deep Learning Spring 2016
 -- Alex Pine (akp258@nyu.edu)
 
@@ -14,9 +14,10 @@ require 'exp_setup'
 
 function parse_cmdline()
    local opt = lapp[[
-      --mode                  (default query)       either 'train' or 'query'. if 'query', specify the model_file.
+      --mode                  (default test)        either 'train', 'test', or 'query'. if 'test' or 'query', specify the model_file.
       --exp_name              (default "")          name of the current experiment. optional.
       --model_file            (default "")          in test mode, use this file as the model. all other params are for 'train'.
+      --model_type            (default lstm)        model type to train.
       --model_save_freq       (default 50)          save the model every x steps.
       --results_dir           (default "results")   directory to save results
       --debug_log_filename    (default "debug.log")  filename of debugging output
@@ -72,42 +73,85 @@ local function lstm(x, prev_c, prev_h)
     return next_c, next_h
 end
 
-function create_network()
-    local x                  = nn.Identity()() -- input word
-    local y                  = nn.Identity()() -- word you're trying to predict from x.
-    -- prev_c and prev_h are stored in prev_s
-    local prev_s             = nn.Identity()() -- previous state
-    -- rrn_size -> word embedding size
-    local i                  = {[0] = nn.LookupTable(params.vocab_size,
-						     params.rnn_size)(x)}
-    -- next state of the model
-    local next_s             = {}
-    -- split c and h
-    -- TODO what does split do?
-    local split              = {prev_s:split(2 * params.layers)}
-    for layer_idx = 1, params.layers do
-        local prev_c         = split[2 * layer_idx - 1]
-        local prev_h         = split[2 * layer_idx]
-        local dropped        = nn.Dropout(params.dropout)(i[layer_idx - 1])
-        local next_c, next_h = lstm(dropped, prev_c, prev_h)
-        table.insert(next_s, next_c)
-        table.insert(next_s, next_h)
-        i[layer_idx] = next_h
-    end
-    local h2y                = nn.Linear(params.rnn_size, params.vocab_size)
-    local dropped            = nn.Dropout(params.dropout)(i[params.layers])
-    local pred               = nn.LogSoftMax()(h2y(dropped))
-    local err                = nn.ClassNLLCriterion()({pred, y})
-    local module             = nn.gModule({x, y, prev_s},
-                                      {err, nn.Identity()(next_s), pred}) -- TODO added pred here
-    -- initialize weights
-    module:getParameters():uniform(-params.init_weight, params.init_weight)
-    return transfer_data(module)
+-- TODO need to adapt this so it works with fp and bp.
+function gru(input, prevh)
+   local i2h = nn.Linear(params.rnn_size, 3 * params.rnn_size)(input)
+   local h2h = nn.Linear(params.rnn_size, 3 * params.rnn_size)(prevh)
+   local gates = nn.CAddTable()({
+	 nn.Narrow(2, 1, 2 * params.rnn_size)(i2h),
+	 nn.Narrow(2, 1, 2 * params.rnn_size)(h2h),})
+   gates = nn.SplitTable(2)(nn.Reshape(2, params.rnn_size)(gates))
+   local resetgate = nn.Sigmoid()(nn.SelectTable(1)(gates))
+   local updategate = nn.Sigmoid()(nn.SelectTable(2)(gates))
+   local output = nn.Tanh()(nn.CAddTable()({
+				  nn.Narrow(2, 2 * params.rnn_size+1, params.rnn_size)(i2h),
+				  nn.CMulTable()({
+					resetgate,
+					nn.Narrow(2, 2 * params.rnn_size+1, params.rnn_size)(h2h),})}))
+   local nexth = nn.CAddTable()({ prevh,
+				  nn.CMulTable()({ updategate,
+						   nn.CSubTable()({output, prevh,}),}),})
+   return nexth
 end
 
-function build_model()
+
+-- TODO I don't understand what it means to add 'layers', conceptually.
+-- TODO I don't understand how the dropout works either.
+-- 'model' has to be 'lstm' or 'gru'
+-- if 'gru' is used, the prev_c variable is left left empty.
+function create_network(model_type)
+   assert(model_type == 'lstm' or model_type == 'gru', 'invalid model type: '..model_type)
+   
+   local x                  = nn.Identity()() -- input word
+   local y                  = nn.Identity()() -- word you're trying to predict from x.
+   -- prev_c and prev_h are stored in prev_s
+   local prev_s             = nn.Identity()() -- previous state
+   -- rrn_size -> word embedding size
+   local i                  = {[0] = nn.LookupTable(params.vocab_size,
+						    params.rnn_size)(x)}
+   -- next state of the model
+   local next_s = {}
+
+   -- TODO this isn't needed for gru. simplify this.
+   local split = nil
+   if model_type == 'lstm' then
+      split = {prev_s:split(2 * params.layers)}
+   else
+      split = {prev_s:split(params.layers)}
+   end
+   
+   for layer_idx = 1, params.layers do
+      local dropped = nn.Dropout(params.dropout)(i[layer_idx - 1])
+      local next_h = nil
+      if model_type == 'lstm' then
+	 local prev_c = split[2 * layer_idx - 1]
+	 local prev_h = split[2 * layer_idx]
+	 local next_c = nil
+	 next_c, next_h = lstm(dropped, prev_c, prev_h)
+	 table.insert(next_s, next_c)
+	 table.insert(next_s, next_h)
+      elseif model_type == 'gru' then
+	 local prev_h = split[layer_idx]
+	 next_h = gru(dropped, prev_h)
+	 table.insert(next_s, next_h)
+      end
+      i[layer_idx] = next_h
+   end
+   local h2y                = nn.Linear(params.rnn_size, params.vocab_size)
+   local dropped            = nn.Dropout(params.dropout)(i[params.layers])
+   local pred               = nn.LogSoftMax()(h2y(dropped))
+   local err                = nn.ClassNLLCriterion()({pred, y})
+   -- added pred here
+   local module             = nn.gModule({x, y, prev_s},
+					 {err, nn.Identity()(next_s), pred})
+   -- initialize weights
+   module:getParameters():uniform(-params.init_weight, params.init_weight)
+   return transfer_data(module)
+end
+
+function build_model(model_type)
     DEBUG("Creating a RNN LSTM network.")
-    local core_network = create_network()
+    local core_network = create_network(model_type)
     paramx, paramdx = core_network:getParameters()
     model.s = {}
     model.ds = {}
@@ -157,8 +201,7 @@ function fp(state)
         local x = state.data[state.pos]
         local y = state.data[state.pos + 1]
         local s = model.s[i - 1]
-	-- NOTE added _ for pred
-        model.err[i], model.s[i], _ = unpack(model.rnns[i]:forward({x, y, s}))
+        model.err[i], model.s[i], _ = unpack(model.rnns[i]:forward({x, y, s})) -- TODO added _ for pred
         state.pos = state.pos + 1
     end
     
@@ -181,8 +224,7 @@ function bp(state)
         local s = model.s[i - 1]
         -- Why 1?
         local derr = transfer_data(torch.ones(1))
-	-- NOTE: added dummy_pred_grad.
-	local dummy_pred_grad = transfer_data(torch.zeros(params.batch_size, params.vocab_size))
+	local dummy_pred_grad = transfer_data(torch.zeros(params.batch_size, params.vocab_size)) -- TODO added dummy_pred_grad. should it be sequence length instead of batch size?
         -- tmp stores the ds
         local tmp = model.rnns[i]:backward({x, y, s},
                                            {derr, model.ds, dummy_pred_grad})[3]
@@ -220,6 +262,31 @@ function run_valid()
     DEBUG("Validation set perplexity : " .. g_f3(torch.exp(perp / len)))
     g_enable_dropout(model.rnns)
 end
+
+function run_test()
+    reset_state(state_test)
+    g_disable_dropout(model.rnns)
+    local perp = 0
+    local len = 10 --TODO state_test.data:size(1)
+    
+    -- no batching here
+    g_replace_table(model.s[0], model.start_s)
+    for i = 1, (len - 1) do
+       local x = state_test.data[i]
+       DEBUG('iter '..i)
+       DEBUG('x') -- TODO
+       DEBUG(x) -- TODO
+       local y = state_test.data[i + 1]
+       DEBUG('y') -- TODO
+       DEBUG(y) -- TODO
+        perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]})) -- TODO add pred
+        perp = perp + perp_tmp[1]
+        g_replace_table(model.s[0], model.s[1])
+    end
+    DEBUG("Test set perplexity : " .. g_f3(torch.exp(perp / (len - 1))))
+    g_enable_dropout(model.rnns)
+end
+
 
 -- invert the ptb.vocab_map
 -- Used to convert the output of the classifier back into words.
@@ -410,14 +477,20 @@ end
 -- Training data is loaded in both train and test mode, since it loads the vocab map.
 state_train = {data=transfer_data(ptb.traindataset(params.batch_size))}
 state_valid =  {data=transfer_data(ptb.validdataset(params.batch_size))}
+state_test =  {data=transfer_data(ptb.testdataset(params.batch_size))}
 
 if params.mode == 'query' then
    DEBUG('QUERY MODE')
    DEBUG('Loading model file from '..params.model_file)
    model = torch.load(params.model_file)
    sentence_gen_repl()
+elseif params.mode == 'test' then
+   DEBUG('TEST MODE')
+   DEBUG('Loading model file from '..params.model_file)
+   model = torch.load(params.model_file)
+   run_test() -- TODO this probably won't work w/o modification.
 else
    DEBUG('TRAIN MODE')
-   build_model()
+   build_model(params.model_type)
    train_model(experiment_dir)
 end
