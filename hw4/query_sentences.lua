@@ -360,6 +360,12 @@ function sentence_gen_repl()
    end
 end
 
+function save_model(experiment_dir)
+   local filename = paths.concat(experiment_dir, 'model.net')
+   DEBUG('==> saving model to '..filename)
+   torch.save(filename, model)
+end
+
 function train_model(experiment_dir)   
    DEBUG("Network parameters:")
    DEBUG(params)
@@ -405,9 +411,7 @@ function train_model(experiment_dir)
 		  ', dw:norm() = ' .. g_f3(model.norm_dw) ..
 		  ', lr = ' ..  g_f3(params.lr) ..
 		  ', since beginning = ' .. since_beginning .. ' mins.')
-	 local filename = paths.concat(experiment_dir, 'model.net')
-	 DEBUG('==> saving model to '..filename)
-	 torch.save(filename, model)
+	 save_model(experiment_dir)
       end
       
       -- run when epoch done
@@ -418,6 +422,7 @@ function train_model(experiment_dir)
 	 end
       end
    end
+   save_model(experiment_dir)
    DEBUG("Training is over.")
 end
 
