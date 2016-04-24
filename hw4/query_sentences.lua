@@ -2,19 +2,6 @@
 -- Deep Learning Spring 2016
 -- Alex Pine (akp258@nyu.edu)
 
--- TODO create an untrained model
--- TODO input this to something like run_test() from main.
--- TODO run_test() suggests only the last two words count for prediction.
-
--- TODO create code to train and save the model.
--- TODO change the code to read the pretrained model if possible.
-
--- read queries from stdin
--- syntax
--- num_words word1 word2 etc.
-
--- TODO input these to the RNN
-
 gpu = false
 
 require 'io'
@@ -269,29 +256,10 @@ function invert_vocab_map()
    return vocab_idx_map
 end
 
--- Expected query syntax:
--- len word1 word2 word3 ...
--- 'len' is the length of the desired sentences
--- word${i} are the input words.
--- uses the vocab_idx_map to check that the words are in the vocab.
--- Returns the split line
-function read_query()
-  local line = io.read("*line")
-  if line == nil then error({code="EOF"}) end
-  line = stringx.split(line)
-  local sentence_length = tonumber(line[1])
-  if sentence_length == nil then
-     error({code="init"})
-  end
-  word_indices = {}
-  for i = 2,#line do
-     if ptb.vocab_map[line[i]] == nil then
-	error({code="vocab", word = line[i]})
-     end
-  end
-  return line
-end
-
+-- Given a 1d tensor of seed words (as indexes to the vocab), this function uses
+-- the model to generate 'sentence_length' more words. It uses the multinomial
+-- distribution to sample from the predictions so that the results are not
+-- deterministic.
 function run_sentence_gen(sentence_length, word_idxs)
    -- reset model
    for d = 1, 2 * params.layers do
@@ -312,12 +280,12 @@ function run_sentence_gen(sentence_length, word_idxs)
    for i = 1, sentence_inputs:size(1)-1 do
       local x = sentence_inputs[i]
       local y = sentence_inputs[i+1]
-      
-      _, model.s[1], log_pred = unpack(model.rnns[1]:forward({x, y, model.s[0]})) -- TODO added log_pred
+
+      _, model.s[1], log_pred = unpack(model.rnns[1]:forward({x, y, model.s[0]}))
       -- only save the word if it's one of the newly predicted ones
       if i >= word_idxs:size(1) then
-	 -- TODO sample from predictions?
-	 local _, pred_idx = torch.max(log_pred, 2) -- TODO is 2 the right dimension?
+         -- Sampling from the predictions so the results are deterministic.
+         local pred_idx = torch.multinomial(torch.exp(log_pred), 1)
 	 sentence_inputs[i+1] = pred_idx
       end
       g_replace_table(model.s[0], model.s[1])
@@ -326,6 +294,29 @@ function run_sentence_gen(sentence_length, word_idxs)
    return sentence_idxs
 end
 
+-- Expected query syntax:
+-- len word1 word2 word3 ...
+-- 'len' is the length of the desired sentences
+-- word${i} are the input words.
+-- uses the vocab_idx_map to check that the words are in the vocab.
+-- Returns the split line
+function read_query()
+  local line = io.read("*line")
+  if line == nil then error({code="EOF"}) end
+  line = string.lower(line)
+  line = stringx.split(line)
+  local sentence_length = tonumber(line[1])
+  if sentence_length == nil then
+     error({code="init"})
+  end
+  word_indices = {}
+  for i = 2,#line do
+     if ptb.vocab_map[line[i]] == nil then
+	error({code="vocab", word = line[i]})
+     end
+  end
+  return line
+end
 
 function sentence_gen_repl()
    local vocab_idx_map = invert_vocab_map()
@@ -337,7 +328,7 @@ function sentence_gen_repl()
 	 if line.code == "EOF" then
 	    break -- end loop
 	 elseif line.code == "vocab" then
-	    DEBUG("Word not in vocabulary: ", line.word) -- TODO vocab is empty
+	    DEBUG("Word not in vocabulary: "..line.word)
 	 elseif line.code == "init" then
 	    DEBUG("Start with a number")
 	 else
@@ -450,10 +441,9 @@ if params.mode == 'test' then
    DEBUG('TEST MODE')
    DEBUG('Loading model file from '..params.model_file)
    model = torch.load(params.model_file)
+   sentence_gen_repl()
 else
    DEBUG('TRAIN MODE')
    build_model()
    train_model(experiment_dir)
 end
-
-sentence_gen_repl()
