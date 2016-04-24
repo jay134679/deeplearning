@@ -9,8 +9,11 @@ set -x
 
 module purge
 
-module load torch-deps/7
-module load torch/intel/20151009
+module load LuaJIT-2.0.4
+
+# TODO these don't work
+#module load torch-deps/7
+#module load torch/intel/20151009
 
 cd ~/deeplearning/hw4/
 th "$@"
