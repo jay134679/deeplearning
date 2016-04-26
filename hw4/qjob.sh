@@ -9,11 +9,12 @@ set -x
 
 module purge
 
-module load LuaJIT-2.0.4
+# this works on crunchy
+#module load LuaJIT-2.0.4
 
-# TODO these don't work
-#module load torch-deps/7
-#module load torch/intel/20151009
+# TODO hpc only?
+module load torch-deps/7
+module load torch/intel/20151009
 
 cd ~/deeplearning/hw4/
-th "$@"
+th result.lua --mode=train --max_epoch=5 --model_type=gru

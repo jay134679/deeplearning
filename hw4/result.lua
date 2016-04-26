@@ -5,6 +5,7 @@
 gpu = false
 
 require 'io'
+require 'xlua'
 stringx = require('pl.stringx')
 require 'nn'
 require('nngraph')
@@ -18,7 +19,7 @@ function parse_cmdline()
       --exp_name              (default "")          name of the current experiment. optional.
       --model_file            (default "")          in test mode, use this file as the model. all other params are for 'train'.
       --model_type            (default lstm)        model type to train.
-      --model_save_freq       (default 50)          save the model every x steps.
+      --model_save_freq       (default 200)         save the model every x steps.
       --results_dir           (default "results")   directory to save results
       --debug_log_filename    (default "debug.log")  filename of debugging output
       -b,--batch_size         (default 20)          minibatch size
@@ -72,6 +73,8 @@ local function lstm(x, prev_c, prev_h)
 
     return next_c, next_h
 end
+
+-- TODO double check these dummy vars are legit
 
 -- The second parameter is a placeholder that allows this GRU cell to be built
 -- into a full network using the same build_network and build_model functions
@@ -245,6 +248,7 @@ function bp(state)
 end
 
 function run_valid()
+    DEBUG('Validating model...')
     -- again start with a clean slate
     reset_state(state_valid)
     
@@ -261,8 +265,9 @@ function run_valid()
     g_enable_dropout(model.rnns)
 end
 
--- TODO this is too slow unless it's run on hpc
+
 function run_test()
+    DEBUG('Testing model...')
     reset_state(state_test)
     g_disable_dropout(model.rnns)
     local perp = 0
@@ -271,6 +276,7 @@ function run_test()
     -- no batching here
     g_replace_table(model.s[0], model.start_s)
     for i = 1, (len - 1) do
+       xlua.progress(i, len-1)
        local x = state_test.data[i]
        local y = state_test.data[i + 1]
        perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]}))
@@ -414,7 +420,7 @@ function train_model(experiment_dir)
    epoch_size = torch.floor(state_train.data:size(1) / params.seq_length)
    
    while epoch < params.max_epoch do  
-      if step % 5 == 0 then
+      if step % 10 == 0 then
          DEBUG('step: '..step)
          DEBUG('epoch: '..epoch)
       end
