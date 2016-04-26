@@ -73,8 +73,10 @@ local function lstm(x, prev_c, prev_h)
     return next_c, next_h
 end
 
--- TODO need to adapt this so it works with fp and bp.
-function gru(input, prevh)
+-- The second parameter is a placeholder that allows this GRU cell to be built
+-- into a full network using the same build_network and build_model functions
+-- used to build lstm.
+function gru(input, _, prevh)
    local i2h = nn.Linear(params.rnn_size, 3 * params.rnn_size)(input)
    local h2h = nn.Linear(params.rnn_size, 3 * params.rnn_size)(prevh)
    local gates = nn.CAddTable()({
@@ -91,16 +93,20 @@ function gru(input, prevh)
    local nexth = nn.CAddTable()({ prevh,
 				  nn.CMulTable()({ updategate,
 						   nn.CSubTable()({output, prevh,}),}),})
-   return nexth
+   return _, nexth
 end
 
 
 -- TODO I don't understand what it means to add 'layers', conceptually.
+-- A diagram involving seq_length and batch_size together would help.
+
 -- TODO I don't understand how the dropout works either.
+
 -- 'model' has to be 'lstm' or 'gru'
--- if 'gru' is used, the prev_c variable is left left empty.
+-- if 'gru' is used, the prev_c variable is ignored.
 function create_network(model_type)
-   assert(model_type == 'lstm' or model_type == 'gru', 'invalid model type: '..model_type)
+   assert(model_type == 'lstm' or model_type == 'gru',
+	  'invalid model type: '..model_type)
    
    local x                  = nn.Identity()() -- input word
    local y                  = nn.Identity()() -- word you're trying to predict from x.
@@ -112,29 +118,20 @@ function create_network(model_type)
    -- next state of the model
    local next_s = {}
 
-   -- TODO this isn't needed for gru. simplify this.
-   local split = nil
-   if model_type == 'lstm' then
-      split = {prev_s:split(2 * params.layers)}
-   else
-      split = {prev_s:split(params.layers)}
-   end
-   
+   local split = {prev_s:split(2 * params.layers)}
    for layer_idx = 1, params.layers do
       local dropped = nn.Dropout(params.dropout)(i[layer_idx - 1])
+      local prev_c = split[2 * layer_idx - 1]
+      local prev_h = split[2 * layer_idx]
+      local next_c = nil
       local next_h = nil
       if model_type == 'lstm' then
-	 local prev_c = split[2 * layer_idx - 1]
-	 local prev_h = split[2 * layer_idx]
-	 local next_c = nil
 	 next_c, next_h = lstm(dropped, prev_c, prev_h)
-	 table.insert(next_s, next_c)
-	 table.insert(next_s, next_h)
-      elseif model_type == 'gru' then
-	 local prev_h = split[layer_idx]
-	 next_h = gru(dropped, prev_h)
-	 table.insert(next_s, next_h)
+      else
+	 next_c, next_h = gru(dropped, prev_c, prev_h)
       end
+      table.insert(next_s, next_c)
+      table.insert(next_s, next_h)      
       i[layer_idx] = next_h
    end
    local h2y                = nn.Linear(params.rnn_size, params.vocab_size)
@@ -150,7 +147,7 @@ function create_network(model_type)
 end
 
 function build_model(model_type)
-    DEBUG("Creating a RNN LSTM network.")
+    DEBUG("Creating a "..params.model_type.." network.")
     local core_network = create_network(model_type)
     paramx, paramdx = core_network:getParameters()
     model.s = {}
@@ -188,7 +185,6 @@ function reset_ds()
 end
 
 function fp(state)
-    -- g_replace_table(from, to).  
     g_replace_table(model.s[0], model.start_s)
     
     -- reset state when we are done with one full epoch
@@ -201,7 +197,7 @@ function fp(state)
         local x = state.data[state.pos]
         local y = state.data[state.pos + 1]
         local s = model.s[i - 1]
-        model.err[i], model.s[i], _ = unpack(model.rnns[i]:forward({x, y, s})) -- TODO added _ for pred
+        model.err[i], model.s[i] = unpack(model.rnns[i]:forward({x, y, s}))
         state.pos = state.pos + 1
     end
     
@@ -222,9 +218,11 @@ function bp(state)
         local x = state.data[state.pos]
         local y = state.data[state.pos + 1]
         local s = model.s[i - 1]
-        -- Why 1?
         local derr = transfer_data(torch.ones(1))
-	local dummy_pred_grad = transfer_data(torch.zeros(params.batch_size, params.vocab_size)) -- TODO added dummy_pred_grad. should it be sequence length instead of batch size?
+	-- NOTE: added dummy_pred_grad. A gradient of zeros, so that the
+	-- prediction node doesn't affect the gradient.
+	local dummy_pred_grad = transfer_data(torch.zeros(params.batch_size,
+							  params.vocab_size))
         -- tmp stores the ds
         local tmp = model.rnns[i]:backward({x, y, s},
                                            {derr, model.ds, dummy_pred_grad})[3]
@@ -263,25 +261,21 @@ function run_valid()
     g_enable_dropout(model.rnns)
 end
 
+-- TODO this is too slow unless it's run on hpc
 function run_test()
     reset_state(state_test)
     g_disable_dropout(model.rnns)
     local perp = 0
-    local len = 10 --TODO state_test.data:size(1)
+    local len = state_test.data:size(1)
     
     -- no batching here
     g_replace_table(model.s[0], model.start_s)
     for i = 1, (len - 1) do
        local x = state_test.data[i]
-       DEBUG('iter '..i)
-       DEBUG('x') -- TODO
-       DEBUG(x) -- TODO
        local y = state_test.data[i + 1]
-       DEBUG('y') -- TODO
-       DEBUG(y) -- TODO
-        perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]})) -- TODO add pred
-        perp = perp + perp_tmp[1]
-        g_replace_table(model.s[0], model.s[1])
+       perp_tmp, model.s[1] = unpack(model.rnns[1]:forward({x, y, model.s[0]}))
+       perp = perp + perp_tmp[1]
+       g_replace_table(model.s[0], model.s[1])
     end
     DEBUG("Test set perplexity : " .. g_f3(torch.exp(perp / (len - 1))))
     g_enable_dropout(model.rnns)
@@ -399,17 +393,18 @@ function save_model(experiment_dir)
    torch.save(filename, model)
 end
 
+-- TODO don't understand steps vs epoch here. How do step, epoch, and epoch size relate?
 function train_model(experiment_dir)   
    DEBUG("Network parameters:")
    DEBUG(params)
    
-   local states = {state_train, state_valid}--, state_test}
+   local states = {state_train, state_valid, state_test}
    for _, state in pairs(states) do
       reset_state(state)
    end
    
-   step = 0 -- How do step, epoch, and epoch size relate?
-   epoch = 0 -- TODO epoch is fractional?
+   step = 0
+   epoch = 0
    total_cases = 0
    beginning_time = torch.tic()
    start_time = torch.tic()
@@ -488,7 +483,7 @@ elseif params.mode == 'test' then
    DEBUG('TEST MODE')
    DEBUG('Loading model file from '..params.model_file)
    model = torch.load(params.model_file)
-   run_test() -- TODO this probably won't work w/o modification.
+   run_test()
 else
    DEBUG('TRAIN MODE')
    build_model(params.model_type)
