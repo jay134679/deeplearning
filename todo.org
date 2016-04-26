@@ -26,7 +26,7 @@ https://www.cims.nyu.edu/webapps/content/systems/userservices/accounts/obtain
 http://cims.nyu.edu/webapps/content/systems/userservices/webhosting
 
 
-* TODO Week 1 Studying
+* DONE Week 1 Studying
 ** DONE Review slides from Lecture, make questions
 ** TODO Watch video / read slides from ICML tutorial
 
@@ -34,7 +34,7 @@ http://cims.nyu.edu/webapps/content/systems/userservices/webhosting
 https://github.com/mayanks43/NYU-DL-2016/blob/master/Tensors.ipynb
 
 
-* TODO Week 2 Studying
+* DONE Week 2 Studying
 ** TODO Read book about backprop
 http://neuralnetworksanddeeplearning.com/chap2.html
 ** TODO read the convnet paper
@@ -126,7 +126,7 @@ https://nbviewer.jupyter.org/github/mayanks43/NYU-DL-2016/blob/master/CNNs.ipynb
 
 
 
-* TODO Homework 4
+* DONE Homework 2
 https://d1b10bmlvqabco.cloudfront.net/attach/iicl1y199833v4/ie3efsaul1h3xo/iksnmh1oi53c/dsga1008a2.pdf
 https://docs.google.com/document/d/1U03sfWe_0SqD40P51h19OMK_l3Nx2phmH0Fs0ilX2bs/edit
 ** DONE Setup AWS
@@ -190,9 +190,87 @@ http://arxiv.org/pdf/1412.6597v4.pdf
 ** DONE do full evaluation without unlabeled data
 ** DONE parse unlabeled data
 ** DONE Write result.lua
-** improve data augmentation
-** TODO refactor provider.lua to load data separately.
+** DONE refactor provider.lua to load data separately.
 There isn't enough memory to load all the data into memory on AWS.
+** TODO Pseudo labels
+*** DONE figure out the annealing schedule
+what it t? It's the epoch.
+
+with α = 3, T1 = 100, T2 = 600 without pre-training,
+T1 = 200, T2 = 800 with DAE.
+
+if we do 300 epochs...i dunno
+maybe make it proportional?
+
+
+*** DONE What model did they use with pseudo labels in their MNIST paper?
+they just use one relu hidden unit + sigmoid for output
+
+we're not going to use this...
+*** TODO How much unlabeled data should we use?
+They used 100,600,1000,3000 training, 1000 for validation and "the rest" for unlabeled.
+
+There are 60000 labeled images in mnist.
+did they really used 3000 labeled for training, and 56000 unlabeled?
+Yeesh.
+
+I guess I'll just have to experiment with this.
+
+*** DONE do we have exponentially decaying learning rate already?
+yes
+*** DONE does our learning rate use momentum?
+yes
+*** DONE we use dropout?
+yes, on both models
+*** TODO write code to sample unlabled data
+*** DONE should unlabeled data be normalized?
+
+*** TODO Create the unlabeled mask
+*** TODO write up the criterion
+include annealing schedule and debug statements
+
+not sure how the labeled and unlabeled data are combined in the loss function...
+
+The problem is taht you don't specify the loss function, you specify the gradient
+of the loss function with respect to the inputs.
+
+but since the paper says you just multiply the loss by a constant, I think you
+just multiply each gradient term by a constant.
+
+it may be as simple as making an if-statement based on whether or not the input has a label.
+if it doesn't, make its 
+
+computing the output and gradient normally on the labeled data,
+and doing the unlabeled data seperately. Then, you 
+
+
+make sure the unlabeled data are mixed in with the training data
+give them nil labels, too
+create a mask vector that indicates where the fake data is
+
+in the training function
+calculate the annealing constant
+
+in feval
+
+- update the targets tensor with the outputs of the unlabeled data with a the mask.
+- update the gradient by multiplying the mask and the annealing constant
+df_do = anneal*mask*df_do
+
+how do you multiply tensors?
+
+anneal_mask = torch.mul(mask, anneal)
+M:mm(, y)
+
+*** TODO use cross entropy?
+*** TODO experiment with equal unlabeled data (4000)
+*** TODO try 16000 unlabeled
+*** TODO try 64000 unlabeled
+*** TODO try all 100000 unlabeld
+
+** TODO write tsne script
+** improve data augmentation
+
 ** Try to get cudnn to work
 ** Unlabeled data experiments
 ** Visualization
@@ -206,3 +284,124 @@ huh??
 ** Create writeup
 ** Submit kaggle code
 ** bundle code and writeup for submission
+
+* TODO Homework 4
+** hpc
+ssh akp258@hpc.nyu.edu
+ssh mercer
+
+** first_training
+lstm no params tweaked
+
+ran for 5 epochs
+
+Took 227 minutes
+
+qsub qjob.sh 
+8175105
+
+qstat -u akp258
+
+can't tell if it's runnig correctly.
+doesn't seem to be logging to debug.log....
+
+it's writing to pinesol_rnn.8175105
+
+check on this job in the morning
+it worked!
+
+DONE lowercase the input
+DONE 'word not in vocab' is still blank'
+DONE why so many <unk>s?
+limited vocab map (10k words), training text has lots more
+
+step: 11605
+epoch: 4.9956952216961
+epoch = 4.998, train perp. = 79.598, wps = 341, dw:norm() = 5.443, lr = 1.000, since beginning = 227 mins.
+==> saving model to /home/akp258/deeplearning/hw4/results/exp_0423234811/model.net
+step: 11610
+epoch: 4.997847610848
+Validation set perplexity : 128.882
+
+output
+
+Query: len word1 word2 etc	
+10 how are you I am 
+how are you i am truly <eos> it will be available if you 'd have 	
+Query: len word1 word2 etc	
+5 if we had only known i would have
+if we had only known i would have a lot of six-month products 	
+Query: len word1 word2 etc	
+20 if we had only known
+if we had only known of more than $ N it stands for $ N after the government can go to work <eos> at N 	
+Query: len word1 word2 etc	
+20 if we had only known
+if we had only known the transportation department associated with the imf 's workers trying to obtain hbo <eos> one news problem is very positive 	
+Query: len word1 word2 etc	
+10 my sister is
+my sister is n't an equity fund had a cash surplus <eos> mr. 	
+Query: len word1 word2 etc	
+20 my sister is
+my sister is companies under place <eos> they say are the poorest bids told trouble for N the <unk> and the growing number 	
+Query: len word1 word2 etc	
+10 if you live in new York
+if you live in new york city donations so <unk> are an enormous opportunity <eos> later 	
+10 if you live in new York
+if you live in new york and it has a bigger savings industry not because we 
+
+saved model as "first_training"
+
+
+*** test run
+
+Saving results at /home/akp258/deeplearning/hw4/results/exp_0425213247	
+Writing options to /home/akp258/deeplearning/hw4/results/exp_0425213247/options.log	
+TEST MODE	
+Loading model file from results/first_training/model.net	
+Testing model...	
+ [================================================= 82429/82429 ============================================>]ETA: 0ms | Step: 10ms          
+Test set perplexity : 126.090
+
+better than 150 baseline!
+
+** TODO gru training
+
+training for 5 hours as a test to ensure I did it right. 
+Should be about as good as lstm (e.g. 120 perp)
+
+th result.lua --mode=train --max_epoch=5 --model_type=gru
+
+qsub qjob.sh 
+8186299
+
+exp_0425221118
+
+qstat -u akp258
+
+*** TODO check how gru did
+
+** TODO LSTM 10 epochs
+
+no default param changes, except 10 epochs instead of 5
+
+lstm model.
+
+th result.lua --mode=train --max_epoch=10 --model_type=lstm --exp_name=lstm10
+
+8186459
+
+*** TODO check how lstm10 did
+
+
+** TODO LSTM 10 epochs, 4 layers
+
+th result.lua --mode=train --max_epoch=10 --model_type=lstm --exp_name=lstm.10e.4l
+
+8186475
+
+*** TODO check how lstm10e.4l did
+
+
+
+
+
