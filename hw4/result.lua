@@ -13,6 +13,8 @@ require('base')
 ptb = require('data')
 require 'exp_setup'
 
+-- TODO choose a default model_file before submitting
+
 function parse_cmdline()
    local opt = lapp[[
       --mode                  (default test)        either 'train', 'test', or 'query'. if 'test' or 'query', specify the model_file.
@@ -24,8 +26,8 @@ function parse_cmdline()
       --debug_log_filename    (default "debug.log")  filename of debugging output
       -b,--batch_size         (default 20)          minibatch size
       --seq_length            (default 20)          unroll length
-      --layers                (default 2)           TODO ?
-      --decay                 (default 2)           TODO ?
+      --layers                (default 2)           number of hidden layers, must be at least 2 for lstm.
+      --decay                 (default 2)           the inverse of this decays the learning rate (--lr).
       --rnn_size              (default 200)         hidden unit size. The size of the word embedding.
       --dropout               (default 0) 
       --init_weight           (default 0.1)         random weight initialization limits
@@ -74,10 +76,9 @@ local function lstm(x, prev_c, prev_h)
     return next_c, next_h
 end
 
--- TODO double check these dummy vars are legit
-
+-- GRU cell implementation. Adapted from the leture slides.
 -- The second parameter is a placeholder that allows this GRU cell to be built
--- into a full network using the same build_network and build_model functions
+-- into a full network using the same create_network and build_model functions
 -- used to build lstm.
 function gru(input, _, prevh)
    local i2h = nn.Linear(params.rnn_size, 3 * params.rnn_size)(input)
@@ -96,17 +97,13 @@ function gru(input, _, prevh)
    local nexth = nn.CAddTable()({ prevh,
 				  nn.CMulTable()({ updategate,
 						   nn.CSubTable()({output, prevh,}),}),})
+   -- The first returned is a dummy value that should be ignored.
    return _, nexth
 end
 
 
--- TODO I don't understand what it means to add 'layers', conceptually.
--- A diagram involving seq_length and batch_size together would help.
-
--- TODO I don't understand how the dropout works either.
-
--- 'model' has to be 'lstm' or 'gru'
--- if 'gru' is used, the prev_c variable is ignored.
+-- 'model_type' has to be 'lstm' or 'gru'
+-- if 'gru' is used, the prev_c variable used in the function is ignored.
 function create_network(model_type)
    assert(model_type == 'lstm' or model_type == 'gru',
 	  'invalid model type: '..model_type)
@@ -211,8 +208,8 @@ function fp(state)
     return model.err:mean()
 end
 
--- TODO how could the optimization method be tuned? I'm not sure what he means.
-
+-- To nullify the affect of having the network return the prediction, I added a
+-- matrix of zero gradients called 'dummy_pred_grad'.
 function bp(state)
     -- start on a clean slate. Backprop over time for params.seq_length.
     paramdx:zero()
@@ -224,8 +221,6 @@ function bp(state)
         local y = state.data[state.pos + 1]
         local s = model.s[i - 1]
         local derr = transfer_data(torch.ones(1))
-	-- NOTE: added dummy_pred_grad. A gradient of zeros, so that the
-	-- prediction node doesn't affect the gradient.
 	local dummy_pred_grad = transfer_data(torch.zeros(params.batch_size,
 							  params.vocab_size))
         -- tmp stores the ds
@@ -411,7 +406,8 @@ function save_model(experiment_dir, current_perp, prev_best_perp)
    return prev_best_perp
 end
 
--- TODO don't understand steps vs epoch here. How do step, epoch, and epoch size relate?
+-- Updated this to save the model when the validation perplexity improves.
+-- experiment_dir is the directory to save the model.
 function train_model(experiment_dir)   
    DEBUG("Network parameters:")
    DEBUG(params)
