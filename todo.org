@@ -378,9 +378,34 @@ exp_0425221118
 
 qstat -u akp258
 
-*** TODO check how gru did
+changed the results directory to be 'initial_gru'
 
-** TODO LSTM 10 epochs
+*** check how gru did
+
+epoch = 4.994, train perp. = 262.332, wps = 390, dw:norm() = 105.236, lr = 1.000, since beginning = 198 mins.       
+==> saving model to /home/akp258/deeplearning/hw4/results/exp_0425221118/model.net  
+step: 11600 
+epoch: 4.9935428325441      
+step: 11610 
+epoch: 4.997847610848       
+Validating model... 
+Validation set perplexity : 335.156 
+==> saving model to /home/akp258/deeplearning/hw4/results/exp_0425221118/model.net
+
+validation perp 335
+
+over twice as bad as lstm...
+
+looks like it overfit.
+
+best validation perp during training:
+
+epoch: 1.9974171330176
+Validating model...
+Validation set perplexity : 191.696
+
+
+** LSTM 10 epochs
 
 no default param changes, except 10 epochs instead of 5
 
@@ -390,18 +415,53 @@ th result.lua --mode=train --max_epoch=10 --model_type=lstm --exp_name=lstm10
 
 8186459
 
-*** TODO check how lstm10 did
+*** check how lstm10 did
 
+
+epoch = 9.987, train perp. = 41.263, wps = 600, dw:norm() = 7.497, lr = 0.031, since beginning = 257 mins.  
+==> saving model to /home/akp258/deeplearning/hw4/results/lstm10_0425223629/model.net       
+step: 23200 
+epoch: 9.9870856650882      
+step: 23210 
+epoch: 9.9913904433922      
+step: 23220 
+epoch: 9.9956952216961      
+Validating model... 
+Validation set perplexity : 122.700 
+==> saving model to /home/akp258/deeplearning/hw4/results/lstm10_0425223629/model.net 
+
+validation perp 122.7
 
 ** TODO LSTM 10 epochs, 4 layers
 
-th result.lua --mode=train --max_epoch=10 --model_type=lstm --exp_name=lstm.10e.4l
+th result.lua --mode=train --max_epoch=10 --model_type=lstm --layers=4 --exp_name=lstm.10e.4l
 
-8186475
-
-*** TODO check how lstm10e.4l did
+job ID: 8193394
 
 
+** TODO gru max epoch 10, dropout 0.5
 
+th result.lua --mode=train --max_epoch=10 --model_type=gru --dropout=0.5 --exp_name=gru.10e.drop
+
+job number 8194547
+
+** TODO lstm max epoch 10, dropout 0.5
+
+
+th result.lua --mode=train --max_epoch=10 --model_type=lstm --dropout=0.5 --exp_name=lstm.10e.drop
+
+job number 8194557
+
+** TODO gru max epoch 10, learning rate of 0.5
+
+th result.lua --mode=train --max_epoch=10 --model_type=gru --lr=0.5 --exp_name=gru.10e.lr5
+
+job number 8194559
+
+** TODO lstm max epoch 10, learning rate of 0.5
+
+th result.lua --mode=train --max_epoch=10 --model_type=lstm --lr=0.5 --exp_name=lstm.10e.lr5
+
+job number 8194562
 
 
