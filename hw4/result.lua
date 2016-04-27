@@ -26,7 +26,7 @@ function parse_cmdline()
       --seq_length            (default 20)          unroll length
       --layers                (default 2)           TODO ?
       --decay                 (default 2)           TODO ?
-      --rnn_size              (default 200)         hidden unit size
+      --rnn_size              (default 200)         hidden unit size. The size of the word embedding.
       --dropout               (default 0) 
       --init_weight           (default 0.1)         random weight initialization limits
       --lr                    (default 1)           learning rate
@@ -211,6 +211,8 @@ function fp(state)
     return model.err:mean()
 end
 
+-- TODO how could the optimization method be tuned? I'm not sure what he means.
+
 function bp(state)
     -- start on a clean slate. Backprop over time for params.seq_length.
     paramdx:zero()
@@ -263,6 +265,7 @@ function run_valid()
     end
     DEBUG("Validation set perplexity : " .. g_f3(torch.exp(perp / len)))
     g_enable_dropout(model.rnns)
+    return perp
 end
 
 
@@ -393,10 +396,19 @@ function sentence_gen_repl()
    end
 end
 
-function save_model(experiment_dir)
-   local filename = paths.concat(experiment_dir, 'model.net')
-   DEBUG('==> saving model to '..filename)
-   torch.save(filename, model)
+-- Saves the model if current_perp < prev_best_perp. Returns the lower of the two.
+function save_model(experiment_dir, current_perp, prev_best_perp)
+   if prev_best_perp == nil or current_perp < prev_best_perp then
+      local prev = prev_best_perp
+      if prev == nil then prev = 'n/a' end 
+      local filename = paths.concat(experiment_dir, 'model.net')
+      DEBUG('==> New perplexity '..current_perp..' < previous value: '..prev)
+      DEBUG('==> saving model to '..filename)
+      torch.save(filename, model)
+      return current_perp
+   end
+   DEBUG('==> Previous perplexity '..prev_best_perp..' < current value: '.. current_perp)
+   return prev_best_perp
 end
 
 -- TODO don't understand steps vs epoch here. How do step, epoch, and epoch size relate?
@@ -412,6 +424,11 @@ function train_model(experiment_dir)
    step = 0
    epoch = 0
    total_cases = 0
+
+   -- Validation perplexity
+   local cur_valid_perp = nil
+   local best_valid_perp = nil
+   
    beginning_time = torch.tic()
    start_time = torch.tic()
 
@@ -420,10 +437,6 @@ function train_model(experiment_dir)
    epoch_size = torch.floor(state_train.data:size(1) / params.seq_length)
    
    while epoch < params.max_epoch do  
-      if step % 10 == 0 then
-         DEBUG('step: '..step)
-         DEBUG('epoch: '..epoch)
-      end
       -- take one step forward
       perp = fp(state_train)
       if perps == nil then
@@ -440,7 +453,7 @@ function train_model(experiment_dir)
       epoch = step / epoch_size
 
       -- display details at some interval
-      if step % params.model_save_freq == 0 then
+      if step % 50 == 0 then
 	 wps = torch.floor(total_cases / torch.toc(start_time))
 	 since_beginning = g_d(torch.toc(beginning_time) / 60)
 	 DEBUG('epoch = ' .. g_f3(epoch) ..
@@ -449,18 +462,19 @@ function train_model(experiment_dir)
 		  ', dw:norm() = ' .. g_f3(model.norm_dw) ..
 		  ', lr = ' ..  g_f3(params.lr) ..
 		  ', since beginning = ' .. since_beginning .. ' mins.')
-	 save_model(experiment_dir)
       end
       
       -- run when epoch done
       if step % epoch_size == 0 then
-	 run_valid()
+	 cur_valid_perp = run_valid()
+	 best_valid_perp = save_model(experiment_dir, cur_valid_perp, best_valid_perp)
 	 if epoch > params.decay_epoch then
             params.lr = params.lr / params.decay
 	 end
       end
    end
-   save_model(experiment_dir)
+   cur_valid_perp = run_valid()
+   save_model(experiment_dir, cur_valid_perp, best_valid_perp)
    DEBUG("Training is over.")
 end
 
