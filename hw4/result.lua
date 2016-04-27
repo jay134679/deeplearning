@@ -265,7 +265,7 @@ function run_valid()
     end
     DEBUG("Validation set perplexity : " .. g_f3(torch.exp(perp / len)))
     g_enable_dropout(model.rnns)
-    return perp
+    return torch.exp(perp / len)
 end
 
 
