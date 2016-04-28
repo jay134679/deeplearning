@@ -364,7 +364,7 @@ Test set perplexity : 126.090
 
 better than 150 baseline!
 
-** TODO gru training
+** gru training
 
 training for 5 hours as a test to ensure I did it right. 
 Should be about as good as lstm (e.g. 120 perp)
@@ -379,8 +379,6 @@ exp_0425221118
 qstat -u akp258
 
 changed the results directory to be 'initial_gru'
-
-*** check how gru did
 
 epoch = 4.994, train perp. = 262.332, wps = 390, dw:norm() = 105.236, lr = 1.000, since beginning = 198 mins.       
 ==> saving model to /home/akp258/deeplearning/hw4/results/exp_0425221118/model.net  
@@ -432,36 +430,154 @@ Validation set perplexity : 122.700
 
 validation perp 122.7
 
-** TODO LSTM 10 epochs, 4 layers
+** LSTM 10 epochs, 4 layers
 
 th result.lua --mode=train --max_epoch=10 --model_type=lstm --layers=4 --exp_name=lstm.10e.4l
 
 job ID: 8193394
 
+epoch = 9.987, train perp. = 58.572, wps = 326, dw:norm() = 6.742, lr = 0.031, since beginning = 474 mins.
+==> saving model to /home/akp258/deeplearning/hw4/results/lstm.10e.4l_0426190607/model.net
+step: 23200
+epoch: 9.9870856650882
+step: 23210
+epoch: 9.9913904433922
+step: 23220
+epoch: 9.9956952216961
+Validating model...
+Validation set perplexity : 125.830
+==> saving model to /home/akp258/deeplearning/hw4/results/lstm.10e.4l_0426190607/model.net
 
-** TODO gru max epoch 10, dropout 0.5
+no intelligent saving, but no evidence of overfitting, either. validation keeps going down.
+
+** gru max epoch 10, dropout 0.5
 
 th result.lua --mode=train --max_epoch=10 --model_type=gru --dropout=0.5 --exp_name=gru.10e.drop
 
 job number 8194547
 
-** TODO lstm max epoch 10, dropout 0.5
+file: results/gru.10e.drop_0426222640/debug.log
+
+best perp after 1 epoch, then did worse afterwards:
+
+epoch = 0.990, train perp. = 516.818, wps = 481, dw:norm() = 8.598, lr = 1.000, since beginning = 32 mins.
+Validating model...
+Validation set perplexity : 257.568
+
+final perplexity after 10 epochs:
+
+epoch = 9.987, train perp. = 436.595, wps = 470, dw:norm() = 509.383, lr = 0.031, since beginning = 329 mins.
+Validating model...
+Validation set perplexity : 337.339
+
+
+** lstm max epoch 10, dropout 0.5
 
 
 th result.lua --mode=train --max_epoch=10 --model_type=lstm --dropout=0.5 --exp_name=lstm.10e.drop
 
 job number 8194557
 
-** TODO gru max epoch 10, learning rate of 0.5
+
+epoch = 9.987, train perp. = 127.609, wps = 410, dw:norm() = 5.621, lr = 0.031, since beginning = 376 mins.
+Validating model...
+Validation set perplexity : 122.492
+==> New perplexity 886.36252293709 < previous value: 887.51813195027
+==> saving model to /home/akp258/deeplearning/hw4/results/lstm.10e.drop_0426222835/model.net
+
+not obviously better
+
+** gru max epoch 10, learning rate of 0.5
 
 th result.lua --mode=train --max_epoch=10 --model_type=gru --lr=0.5 --exp_name=gru.10e.lr5
 
 job number 8194559
 
-** TODO lstm max epoch 10, learning rate of 0.5
+results/gru.10e.lr5_0426222930/model.net
+
+no overfitting, the validation goes down consitently until the end.
+
+epoch = 9.987, train perp. = 38.020, wps = 439, dw:norm() = 16.317, lr = 0.016, since beginning = 352 mins.
+Validating model...
+Validation set perplexity : 131.183
+
+close to LSTM.
+
+** lstm max epoch 10, learning rate of 0.5
 
 th result.lua --mode=train --max_epoch=10 --model_type=lstm --lr=0.5 --exp_name=lstm.10e.lr5
 
 job number 8194562
+
+epoch = 9.987, train perp. = 51.454, wps = 368, dw:norm() = 9.594, lr = 0.016, since beginning = 419 mins.
+Validating model...
+Validation set perplexity : 118.532
+==> New perplexity 880.30464523851 < previous value: 881.14051476258
+==> saving model to /home/akp258/deeplearning/hw4/results/lstm.10e.lr5_0426223232/model.net
+
+similarly better
+
+** TODO gru max epoch 10, learning rate of 0.2
+
+learning rate helped, gonna see if this helps more.
+
+th result.lua --mode=train --max_epoch=10 --model_type=gru --lr=0.2 --exp_name=gru.10e.lr2
+
+job number 8200785
+
+** TODO lstm max epoch 10 rnn size 300
+
+drop out and learning rate don't do very much.
+trying rrn size.
+
+th result.lua --mode=train --max_epoch=10 --model_type=lstm --rnn_size=300 --exp_name=lstm.10e.rnn300
+
+Job number 8200809
+
+** TODO lstm max epoch 15 rnn size 300
+
+I'm assuming a bigger rnn size will be better, but take longer to train. adding 5 epochs to test.
+
+th result.lua --mode=train --max_epoch=15 --model_type=lstm --rnn_size=300 --exp_name=lstm.15e.rnn300
+
+job number 8200849
+
+** TODO gru max epoch 10 learning rate 0.5 rnn size 300
+
+th result.lua --mode=train --max_epoch=10 --model_type=gru --lr=0.5 --rnn_size=300 --exp_name=gru.10e.lr5.rnn300
+
+job number 8200821
+
+
+** TODO lstm max epoch 10 grad clipping 3
+
+th result.lua --mode=train --max_epoch=10 --model_type=lstm --max_grad_norm=3 --exp_name=lstm.10e.grad3
+
+job number 8202242
+
+** TODO gru max epoch 10 grad clipping 3
+
+th result.lua --mode=train --max_epoch=10 --model_type=gru --max_grad_norm=3 --exp_name=gru.10e.grad3
+
+job number 8202266
+
+** DONE are nngraph_warmup.lua, result.lua and query_sentences.lua ready to be submitted?
+** DONE add picture to your results
+** TODO do run_test on the models with the best validation perplexity to check you made the benchmark.
+** TODO write up
+*** TODO how do you load the style file?
+*** DONE problem 1
+*** TODO Add in the results of the remaining experiments
+*** TODO write up the test results of the best model.
+** TODO check that result.lua matches your writeup results.
+** TODO run query sentences on the best model as a sanity check.
+** TODO move best model to public directory
+** TODO add best model to result.lua
+** TODO add best model to query_sentences.lua
+** TODO move the 3 files to a zip folder.
+** TODO create a readme
+** TODO email the TA
+
+
 
 
