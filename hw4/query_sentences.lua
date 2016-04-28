@@ -1,4 +1,4 @@
--- query_sentences.lua
+-- Homework 4:  query_sentences.lua
 -- Deep Learning Spring 2016
 -- Alex Pine (akp258@nyu.edu)
 
@@ -22,8 +22,8 @@ function parse_cmdline()
       --debug_log_filename    (default "debug.log")  filename of debugging output
       -b,--batch_size         (default 20)          minibatch size
       --seq_length            (default 20)          unroll length
-      --layers                (default 2)           TODO ?
-      --decay                 (default 2)           TODO ?
+      --layers                (default 2)           number of hidden layers
+      --decay                 (default 2)           the inverse of this decays the learning rate (--lr).
       --rnn_size              (default 200)         hidden unit size
       --dropout               (default 0) 
       --init_weight           (default 0.1)         random weight initialization limits
@@ -72,6 +72,7 @@ local function lstm(x, prev_c, prev_h)
     return next_c, next_h
 end
 
+-- Updated from the original version so that the log-prediction is also returned.
 function create_network()
     local x                  = nn.Identity()() -- input word
     local y                  = nn.Identity()() -- word you're trying to predict from x.
@@ -83,7 +84,6 @@ function create_network()
     -- next state of the model
     local next_s             = {}
     -- split c and h
-    -- TODO what does split do?
     local split              = {prev_s:split(2 * params.layers)}
     for layer_idx = 1, params.layers do
         local prev_c         = split[2 * layer_idx - 1]
@@ -99,7 +99,7 @@ function create_network()
     local pred               = nn.LogSoftMax()(h2y(dropped))
     local err                = nn.ClassNLLCriterion()({pred, y})
     local module             = nn.gModule({x, y, prev_s},
-                                      {err, nn.Identity()(next_s), pred}) -- TODO added pred here
+                                      {err, nn.Identity()(next_s), pred})
     -- initialize weights
     module:getParameters():uniform(-params.init_weight, params.init_weight)
     return transfer_data(module)
@@ -169,6 +169,8 @@ function fp(state)
     return model.err:mean()
 end
 
+-- To nullify the affect of having the network return the prediction, I added a
+-- matrix of zero gradients called 'dummy_pred_grad'.
 function bp(state)
     -- start on a clean slate. Backprop over time for params.seq_length.
     paramdx:zero()
@@ -336,13 +338,13 @@ function train_model(experiment_dir)
    DEBUG("Network parameters:")
    DEBUG(params)
    
-   local states = {state_train, state_valid}--, state_test}
+   local states = {state_train, state_valid}
    for _, state in pairs(states) do
       reset_state(state)
    end
    
-   step = 0 -- How do step, epoch, and epoch size relate?
-   epoch = 0 -- TODO epoch is fractional?
+   step = 0
+   epoch = 0
    total_cases = 0
    beginning_time = torch.tic()
    start_time = torch.tic()

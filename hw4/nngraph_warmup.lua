@@ -1,4 +1,5 @@
 -- Homework 4: nngraph_warmup.lua
+-- Deep Learning Spring 2016
 -- Alex Pine (akp258@nyu.edu)
 
 require 'nngraph'
@@ -12,11 +13,16 @@ A_SIZE = 2
 -- length X_SIZE, the second Y_SIZE, and the third A_SIZE.
 function problem1a()
    local in1 = nn.Linear(X_SIZE, A_SIZE)()
+   in1.data.module.weight = torch.ones(A_SIZE, X_SIZE)
+   in1.data.module.bias = torch.ones(A_SIZE)
    local in2 = nn.Linear(Y_SIZE, A_SIZE)()
+   in2.data.module.weight = torch.ones(A_SIZE, Y_SIZE)
+   in2.data.module.bias = torch.ones(A_SIZE)
    local in3 = nn.Identity()()
    local left = nn.Square()(nn.Tanh()(in1))
    local right = nn.Square()(nn.Sigmoid()(in2))
-   local out = nn.CAddTable()({left, right, in3})
+   local mul_result = nn.CMulTable()({left, right})
+   local out = nn.CAddTable()({mul_result, in3})
 
    return nn.gModule({in1, in2, in3}, {out})
 end
@@ -44,7 +50,7 @@ function problem1b(x, y, z)
    end
 end
 
-xIn = torch.randn(X_SIZE)
-yIn = torch.randn(Y_SIZE)
-zIn = torch.randn(A_SIZE)
+xIn = torch.ones(X_SIZE)
+yIn = torch.ones(Y_SIZE)
+zIn = torch.ones(A_SIZE)
 problem1b(xIn, yIn, zIn)
