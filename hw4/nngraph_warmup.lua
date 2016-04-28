@@ -1,4 +1,5 @@
 -- Homework 4: nngraph_warmup.lua
+-- Deep Learning Spring 2016
 -- Alex Pine (akp258@nyu.edu)
 
 require 'nngraph'

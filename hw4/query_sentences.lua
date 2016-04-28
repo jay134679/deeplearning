@@ -1,4 +1,4 @@
--- query_sentences.lua
+-- Homework 4:  query_sentences.lua
 -- Deep Learning Spring 2016
 -- Alex Pine (akp258@nyu.edu)
 
