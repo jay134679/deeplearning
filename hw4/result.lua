@@ -104,6 +104,7 @@ end
 
 -- 'model_type' has to be 'lstm' or 'gru'
 -- if 'gru' is used, the prev_c variable used in the function is ignored.
+-- Updated from the original version so that the log-prediction is also returned.
 function create_network(model_type)
    assert(model_type == 'lstm' or model_type == 'gru',
 	  'invalid model type: '..model_type)
@@ -197,6 +198,7 @@ function fp(state)
         local x = state.data[state.pos]
         local y = state.data[state.pos + 1]
         local s = model.s[i - 1]
+	-- Ignoring the prediction here since it's not needed.
         model.err[i], model.s[i] = unpack(model.rnns[i]:forward({x, y, s}))
         state.pos = state.pos + 1
     end
