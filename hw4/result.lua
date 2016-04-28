@@ -268,7 +268,6 @@ function run_valid()
     return torch.exp(perp / len)
 end
 
-
 function run_test()
     DEBUG('Testing model...')
     reset_state(state_test)
@@ -288,112 +287,6 @@ function run_test()
     end
     DEBUG("Test set perplexity : " .. g_f3(torch.exp(perp / (len - 1))))
     g_enable_dropout(model.rnns)
-end
-
-
--- invert the ptb.vocab_map
--- Used to convert the output of the classifier back into words.
-function invert_vocab_map()
-   local vocab_idx_map = {}
-   for k,v in pairs(ptb.vocab_map) do
-      vocab_idx_map[v] = k
-   end
-   return vocab_idx_map
-end
-
--- Given a 1d tensor of seed words (as indexes to the vocab), this function uses
--- the model to generate 'sentence_length' more words. It uses the multinomial
--- distribution to sample from the predictions so that the results are not
--- deterministic.
-function run_sentence_gen(sentence_length, word_idxs)
-   -- reset model
-   for d = 1, 2 * params.layers do
-      model.start_s[d]:zero()
-   end
-
-   g_disable_dropout(model.rnns)
-
-   -- put ones where there are no entries. this is equivalent to guessing the first vocab word.
-   local sentence_idxs = torch.ones(word_idxs:size(1)+sentence_length)
-   for i = 1, word_idxs:size(1) do
-      sentence_idxs[i] = word_idxs[i]
-   end
-   -- Resize and replicate the inputs to match the batch size like data.testdataset does.
-   local sentence_inputs = sentence_idxs:resize(sentence_idxs:size(1), 1):expand(sentence_idxs:size(1), params.batch_size)
-   
-   g_replace_table(model.s[0], model.start_s)
-   for i = 1, sentence_inputs:size(1)-1 do
-      local x = sentence_inputs[i]
-      local y = sentence_inputs[i+1]
-
-      _, model.s[1], log_pred = unpack(model.rnns[1]:forward({x, y, model.s[0]}))
-      -- only save the word if it's one of the newly predicted ones
-      if i >= word_idxs:size(1) then
-         -- Sampling from the predictions so the results are deterministic.
-         local pred_idx = torch.multinomial(torch.exp(log_pred), 1)
-	 sentence_inputs[i+1] = pred_idx
-      end
-      g_replace_table(model.s[0], model.s[1])
-   end
-   g_enable_dropout(model.rnns)
-   return sentence_idxs
-end
-
--- Expected query syntax:
--- len word1 word2 word3 ...
--- 'len' is the length of the desired sentences
--- word${i} are the input words.
--- uses the vocab_idx_map to check that the words are in the vocab.
--- Returns the split line
-function read_query()
-  local line = io.read("*line")
-  if line == nil then error({code="EOF"}) end
-  line = string.lower(line)
-  line = stringx.split(line)
-  local sentence_length = tonumber(line[1])
-  if sentence_length == nil then
-     error({code="init"})
-  end
-  word_indices = {}
-  for i = 2,#line do
-     if ptb.vocab_map[line[i]] == nil then
-	error({code="vocab", word = line[i]})
-     end
-  end
-  return line
-end
-
-function sentence_gen_repl()
-   local vocab_idx_map = invert_vocab_map()
-   
-    while true do
-      DEBUG("Query: len word1 word2 etc")
-      local ok, line = pcall(read_query)
-      if not ok then
-	 if line.code == "EOF" then
-	    break -- end loop
-	 elseif line.code == "vocab" then
-	    DEBUG("Word not in vocabulary: "..line.word)
-	 elseif line.code == "init" then
-	    DEBUG("Start with a number")
-	 else
-	    DEBUG(line)
-	    DEBUG("Failed, try again")
-	 end
-      else
-	 local sentence_length = tonumber(line[1])
-	 local input_idxs = torch.zeros(#line - 1)
-	 for i = 2,#line do
-	    input_idxs[i-1] = ptb.vocab_map[line[i]]
-	 end
-	 predicted_word_idxs = run_sentence_gen(sentence_length, input_idxs)
-	 all_words_str = ""
-	 for i = 1,predicted_word_idxs:size(1) do
-	    all_words_str = all_words_str..vocab_idx_map[predicted_word_idxs[i][1]].." "
-	 end
-	 DEBUG(all_words_str)
-      end
-   end
 end
 
 -- Saves the model if current_perp < prev_best_perp. Returns the lower of the two.
@@ -494,12 +387,7 @@ state_train = {data=transfer_data(ptb.traindataset(params.batch_size))}
 state_valid =  {data=transfer_data(ptb.validdataset(params.batch_size))}
 state_test =  {data=transfer_data(ptb.testdataset(params.batch_size))}
 
-if params.mode == 'query' then
-   DEBUG('QUERY MODE')
-   DEBUG('Loading model file from '..params.model_file)
-   model = torch.load(params.model_file)
-   sentence_gen_repl()
-elseif params.mode == 'test' then
+if params.mode == 'test' then
    DEBUG('TEST MODE')
    DEBUG('Loading model file from '..params.model_file)
    model = torch.load(params.model_file)
