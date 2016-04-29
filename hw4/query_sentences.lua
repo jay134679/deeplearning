@@ -18,8 +18,8 @@ function parse_cmdline()
       --exp_name              (default "")          name of the current experiment. optional.
       --model_file            (default "")          in test mode, use this file as the model. all other params are for 'train'.
       --model_save_freq       (default 50)          save the model every x steps.
-      --results_dir           (default "results")   directory to save results
-      --debug_log_filename    (default "debug.log")  filename of debugging output
+      --results_dir           (default "")          directory to save results
+      --debug_log_filename    (default "debug.log") filename of debugging output
       -b,--batch_size         (default 20)          minibatch size
       --seq_length            (default 20)          unroll length
       --layers                (default 2)           number of hidden layers

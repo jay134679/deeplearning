@@ -13,16 +13,14 @@ require('base')
 ptb = require('data')
 require 'exp_setup'
 
--- TODO choose a default model_file before submitting
-
 function parse_cmdline()
    local opt = lapp[[
       --mode                  (default test)        either 'train', 'test', or 'query'. if 'test' or 'query', specify the model_file.
+      --model_file            (default "model.hw4.net") in test mode, use this file as the model. all other params are for 'train'.
       --exp_name              (default "")          name of the current experiment. optional.
-      --model_file            (default "")          in test mode, use this file as the model. all other params are for 'train'.
       --model_type            (default lstm)        model type to train.
       --model_save_freq       (default 200)         save the model every x steps.
-      --results_dir           (default "results")   directory to save results
+      --results_dir           (default "")          directory to save results
       --debug_log_filename    (default "debug.log")  filename of debugging output
       -b,--batch_size         (default 20)          minibatch size
       --seq_length            (default 20)          unroll length
